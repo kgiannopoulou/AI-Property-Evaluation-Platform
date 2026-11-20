@@ -1,0 +1,20 @@
+{
+  "name": "property-ai-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI service: image analysis, visual defect detection, equipment detection and AI report generation",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "dev": "node --watch src/server.ts",
+    "start": "node src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"test/**/*.test.ts\""
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "typescript": "^5.9.3"
+  }
+}

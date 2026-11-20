@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens — a calm property-finance palette: deep ink navigation,
+ * neutral surfaces, a teal primary and restrained semantic colours.
+ */
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono-face), ui-monospace, monospace;
+
+  --color-ink-950: #07121f;
+  --color-ink-900: #0b1b2b;
+  --color-ink-800: #13283d;
+  --color-ink-700: #1d3852;
+  --color-ink-600: #2d4a66;
+
+  --color-canvas: #f5f7fa;
+  --color-surface: #ffffff;
+  --color-line: #e2e7ee;
+  --color-line-strong: #cbd3de;
+
+  --color-text: #0f1c2b;
+  --color-muted: #5b6b7d;
+  --color-subtle: #8593a3;
+
+  --color-brand-50: #eefbf8;
+  --color-brand-100: #d3f3ec;
+  --color-brand-500: #149584;
+  --color-brand-600: #0f7a6d;
+  --color-brand-700: #0c6259;
+
+  --color-gold-500: #b98a2e;
+  --color-gold-100: #f8efdc;
+
+  --color-positive: #15803d;
+  --color-positive-soft: #e7f6ec;
+  --color-negative: #c2410c;
+  --color-negative-soft: #fdeee6;
+  --color-warning: #a16207;
+  --color-warning-soft: #fdf5dd;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Form controls share one look across the app. */
+.input {
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-surface);
+  padding: 0.55rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--color-text);
+  outline: none;
+  transition: border-color 120ms, box-shadow 120ms;
+}
+.input:focus {
+  border-color: var(--color-brand-500);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-500) 18%, transparent);
+}
+.input[aria-invalid="true"] {
+  border-color: var(--color-negative);
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+  .print-flat {
+    box-shadow: none !important;
+    border-color: #d0d7e0 !important;
+  }
+}

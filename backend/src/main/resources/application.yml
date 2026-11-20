@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: property-backend
+
+server:
+  port: ${PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+# Secrets (database password, Stripe and storage keys) come from environment variables
+# and are never sent to the browser. See .env.example at the repository root.

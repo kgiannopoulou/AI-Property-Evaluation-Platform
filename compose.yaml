@@ -1,0 +1,21 @@
+# Local PostgreSQL + PostGIS. The schema in database/migrations is applied on first start.
+#   docker compose up -d db
+services:
+  db:
+    image: postgis/postgis:17-3.5
+    environment:
+      POSTGRES_DB: property_intelligence
+      POSTGRES_USER: property
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-property-dev-only}
+    ports:
+      - "5437:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U property -d property_intelligence"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  pgdata:
