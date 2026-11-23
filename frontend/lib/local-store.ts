@@ -21,7 +21,15 @@ export class StorageFullError extends Error {
   }
 }
 
-export function createLocalStore<T>(key: string, initial: () => T): LocalStore<T> {
+/**
+ * @param migrate Upgrades a stored value written by an older version of the
+ *   app. Runs once per raw value (the result is cached).
+ */
+export function createLocalStore<T>(
+  key: string,
+  initial: () => T,
+  migrate: (stored: unknown) => T = (v) => v as T,
+): LocalStore<T> {
   const listeners = new Set<() => void>();
   let cache: { raw: string | null; value: T } | undefined;
 
@@ -45,7 +53,7 @@ export function createLocalStore<T>(key: string, initial: () => T): LocalStore<T
       }
     } else {
       try {
-        value = JSON.parse(raw) as T;
+        value = migrate(JSON.parse(raw));
       } catch {
         value = initial();
       }

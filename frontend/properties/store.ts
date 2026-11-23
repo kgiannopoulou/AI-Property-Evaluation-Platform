@@ -5,12 +5,18 @@ import type { AnalysisResult } from "@/analysis/types";
 import { createLocalStore, useLocalStore } from "@/lib/local-store";
 import { preferencesStore } from "@/lib/session";
 import { SAMPLE_PROPERTIES } from "./sample-data";
+import { normalizeProperty } from "./submission";
 import type { Property, PropertyInput } from "./types";
 
 const EMPTY_PROPERTIES: Property[] = [];
 const EMPTY_ANALYSES: Record<string, AnalysisResult> = {};
 
-export const propertiesStore = createLocalStore<Property[]>("pi.properties.v1", () => SAMPLE_PROPERTIES);
+export const propertiesStore = createLocalStore<Property[]>(
+  "pi.properties.v1",
+  () => SAMPLE_PROPERTIES,
+  // Records saved before Phase 5 lack the submission fields; fill neutral defaults.
+  (stored) => (Array.isArray(stored) ? stored.map(normalizeProperty) : SAMPLE_PROPERTIES),
+);
 export const analysesStore = createLocalStore<Record<string, AnalysisResult>>("pi.analyses.v1", () =>
   Object.fromEntries(SAMPLE_PROPERTIES.map((p) => [p.id, analyzeProperty(p, new Date(p.createdAt))])),
 );
@@ -44,7 +50,7 @@ export function deleteProperty(id: string): void {
   });
 }
 
-/** Runs the Phase 3 sample engine and stores the result. */
+/** Runs the sample engine and stores the result. */
 export function runAnalysis(property: Property): AnalysisResult {
   const prefs = preferencesStore.get();
   const result = analyzeProperty(property, new Date(), {

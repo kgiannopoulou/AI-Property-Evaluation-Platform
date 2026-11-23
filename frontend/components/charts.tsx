@@ -84,8 +84,11 @@ function Marker({
 /** Horizontal bars of price per m², with the subject property highlighted. */
 export function PricePerSqmBars({
   rows,
+  format = formatPerSqm,
 }: {
   rows: { label: string; value: number; highlight?: boolean; sublabel?: string }[];
+  /** Defaults to sale prices per m²; rentals pass a per-month formatter. */
+  format?: (n: number) => string;
 }) {
   const max = Math.max(...rows.map((r) => r.value)) * 1.08;
   return (
@@ -103,7 +106,7 @@ export function PricePerSqmBars({
             />
           </span>
           <span className={cn("tabular w-24 text-right", r.highlight ? "font-semibold" : "text-muted")}>
-            {formatPerSqm(r.value)}
+            {format(r.value)}
           </span>
         </li>
       ))}

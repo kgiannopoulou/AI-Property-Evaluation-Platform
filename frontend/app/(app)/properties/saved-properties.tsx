@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { IconCompare, IconPlus, IconTrash } from "@/components/icons";
 import { Button, ButtonLink, Card, EmptyState, PageHeader } from "@/components/ui";
-import { cn, formatDate, formatEur, formatEurCompact, formatPerSqm } from "@/lib/format";
+import { cn, formatDate, formatEurCompact, formatPerSqm, formatRentPerSqm } from "@/lib/format";
 import { useHydrated } from "@/lib/local-store";
 import { deleteProperty, useAnalyses, useProperties } from "@/properties/store";
 import { PROPERTY_TYPE_LABELS } from "@/properties/types";
-import { PropertyThumb, SampleTag, VerdictBadge } from "@/properties/ui";
+import { PropertyThumb, SampleTag, VerdictBadge, formatAsking } from "@/properties/ui";
 
 type Sort = "newest" | "price" | "score" | "delta";
 const SORTS: [Sort, string][] = [
@@ -130,9 +130,11 @@ export function SavedProperties() {
                         </p>
                         <div className="mt-4 mb-4 flex items-end justify-between gap-2">
                           <div>
-                            <p className="tabular text-lg font-semibold">{formatEur(p.askingPrice)}</p>
+                            <p className="tabular text-lg font-semibold">{formatAsking(p)}</p>
                             <p className="tabular text-xs text-muted">
-                              {formatPerSqm(Math.round(p.askingPrice / p.sizeSqm))}
+                              {p.listingType === "rent"
+                                ? formatRentPerSqm(p.askingPrice / p.sizeSqm)
+                                : formatPerSqm(Math.round(p.askingPrice / p.sizeSqm))}
                               {a && ` · est. ${formatEurCompact(a.estimate.mid)}`}
                             </p>
                           </div>

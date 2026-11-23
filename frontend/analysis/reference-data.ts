@@ -57,3 +57,21 @@ export const RENOVATION_PER_SQM = {
   medium: 420,
   premium: 780,
 };
+
+/** Illustrative replacement cost for each checklist appliance, EUR. */
+export const APPLIANCE_REPLACEMENT_COST = {
+  refrigerator: 650,
+  "washing-machine": 500,
+  dishwasher: 480,
+  "oven-stove": 700,
+  "air-conditioning": 850,
+} as const;
+
+/** Illustrative tenant move-in assumptions (Greece-style, simplified). */
+export const TENANCY_COSTS = {
+  depositMonths: 2,
+  agentFeeMonths: 1,
+  vatRate: 0.24,
+  /** Electricity, water and internet for an average flat, EUR per m² per month. */
+  utilitiesPerSqm: 1.1,
+};

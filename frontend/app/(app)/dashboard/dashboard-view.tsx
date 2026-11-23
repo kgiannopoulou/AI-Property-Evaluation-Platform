@@ -4,12 +4,12 @@ import Link from "next/link";
 import { Meter, ScoreRing } from "@/components/charts";
 import { IconArrowRight, IconPlus } from "@/components/icons";
 import { ButtonLink, Card, CardHeader, EmptyState, PageHeader, Stat } from "@/components/ui";
-import { formatDate, formatEur, formatEurCompact } from "@/lib/format";
+import { formatDate, formatEurCompact } from "@/lib/format";
 import { useHydrated } from "@/lib/local-store";
 import { MODULES } from "@/lib/modules";
 import { DEMO_SESSION, PLAN_LIMITS, useSession } from "@/lib/session";
 import { useAnalyses, useProperties } from "@/properties/store";
-import { PropertyThumb, SampleTag, VerdictBadge } from "@/properties/ui";
+import { PropertyThumb, SampleTag, VerdictBadge, formatAsking } from "@/properties/ui";
 
 export function DashboardView() {
   const hydrated = useHydrated();
@@ -25,13 +25,16 @@ export function DashboardView() {
 
   const limit = PLAN_LIMITS[user.plan].analysesPerMonth;
 
-  const totalAsking = properties.reduce((s, p) => s + p.askingPrice, 0);
+  // Sale prices and monthly rents are not added together.
+  const forSale = properties.filter((p) => p.listingType === "sale");
+  const totalAsking = forSale.reduce((s, p) => s + p.askingPrice, 0);
   const avgScore = analysed.length
     ? Math.round(analysed.reduce((s, p) => s + analyses[p.id].scores.overall, 0) / analysed.length)
     : 0;
   const overpriced = analysed.filter((p) => analyses[p.id].verdict === "above-market").length;
   const potentialSaving = analysed.reduce(
-    (s, p) => s + Math.max(0, p.askingPrice - analyses[p.id].negotiation.maxOffer),
+    (s, p) =>
+      s + (p.listingType === "sale" ? Math.max(0, p.askingPrice - analyses[p.id].negotiation.maxOffer) : 0),
     0,
   );
 
@@ -62,7 +65,7 @@ export function DashboardView() {
           <Stat label="Saved properties" value={properties.length} hint={`${analysed.length} analysed`} />
         </Card>
         <Card className="p-5">
-          <Stat label="Combined asking" value={formatEurCompact(totalAsking)} hint="Across saved properties" />
+          <Stat label="Combined asking" value={formatEurCompact(totalAsking)} hint="Across properties for sale" />
         </Card>
         <Card className="p-5">
           <Stat
@@ -122,7 +125,7 @@ export function DashboardView() {
                         </p>
                       </div>
                       <div className="hidden text-right sm:block">
-                        <p className="tabular text-sm font-semibold">{formatEur(p.askingPrice)}</p>
+                        <p className="tabular text-sm font-semibold">{formatAsking(p)}</p>
                         <p className="tabular text-xs text-muted">est. {formatEurCompact(a.estimate.mid)}</p>
                       </div>
                       <div className="hidden md:block">

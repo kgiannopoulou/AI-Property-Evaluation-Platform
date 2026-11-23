@@ -45,9 +45,24 @@ export type ScoreBreakdown = {
 
 export type AnalysisResult = {
   propertyId: string;
+  /**
+   * "sale": estimate, verdict and negotiation are about the purchase price.
+   * "rent": they are about the monthly rent. Results stored before Phase 5
+   * have no mode and are sale results.
+   */
+  mode?: "sale" | "rent";
+  /** Mid estimate of the sale value, in both modes. */
+  propertyValue?: number;
+  /** Move-in and monthly costs for a tenant (rent mode only). */
+  tenancy?: {
+    moveInCosts: { label: string; amount: number }[];
+    totalMoveIn: number;
+    monthlyCost: number;
+    monthlyBreakdown: { label: string; amount: number }[];
+  };
   generatedAt: string;
-  /** Always "sample" in Phase 3; real engines will report their own id. */
-  engine: "sample-v1";
+  /** The rule-based sample engine; real engines will report their own id. */
+  engine: "sample-v1" | "sample-v2";
   estimate: { low: number; mid: number; high: number };
   pricePerSqm: { asking: number; estimated: number; district: number };
   verdict: Verdict;

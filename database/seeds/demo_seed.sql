@@ -50,7 +50,24 @@ VALUES ('d0000000-0000-4000-8000-0000000000a1', 'd0000000-0000-4000-8000-0000000
         false, true, true, 9, 265000, 'Demo record for local development.')
 ON CONFLICT (id) DO NOTHING;
 
+UPDATE properties SET construction_type = 'reinforced-concrete', cooling = 'split-units',
+                      energy_certificate_status = 'issued'
+WHERE id = 'd0000000-0000-4000-8000-0000000000a1';
+UPDATE buildings SET common_charges_include_heating = false, planned_works = '[DEMO] Facade repainting voted for spring'
+WHERE id = 'd0000000-0000-4000-8000-0000000000b1';
+
+INSERT INTO appliance_checklist (property_id, item, status) VALUES
+    ('d0000000-0000-4000-8000-0000000000a1', 'refrigerator', 'working'),
+    ('d0000000-0000-4000-8000-0000000000a1', 'washing-machine', 'working'),
+    ('d0000000-0000-4000-8000-0000000000a1', 'dishwasher', 'missing'),
+    ('d0000000-0000-4000-8000-0000000000a1', 'oven-stove', 'working'),
+    ('d0000000-0000-4000-8000-0000000000a1', 'air-conditioning', 'damaged'),
+    ('d0000000-0000-4000-8000-0000000000a1', 'heating', 'available'),
+    ('d0000000-0000-4000-8000-0000000000a1', 'furniture', 'not-included');
+
 INSERT INTO property_features (property_id, category, name, quantity, area_sqm, condition) VALUES
+    ('d0000000-0000-4000-8000-0000000000a1', 'facility', 'security-door', 1, NULL, NULL),
+    ('d0000000-0000-4000-8000-0000000000a1', 'facility', 'solar-water-heater', 1, NULL, NULL),
     ('d0000000-0000-4000-8000-0000000000a1', 'room', 'bedroom', 2, 24, 'fair'),
     ('d0000000-0000-4000-8000-0000000000a1', 'room', 'living-room', 1, 26, 'good'),
     ('d0000000-0000-4000-8000-0000000000a1', 'room', 'kitchen', 1, 9, 'fair'),

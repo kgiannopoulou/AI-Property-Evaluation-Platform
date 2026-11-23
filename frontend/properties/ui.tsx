@@ -1,7 +1,7 @@
 import type { Verdict } from "@/analysis/types";
 import { IconHome } from "@/components/icons";
 import { Badge } from "@/components/ui";
-import { cn } from "@/lib/format";
+import { cn, formatEur } from "@/lib/format";
 import type { Property } from "./types";
 
 export const VERDICT_LABELS: Record<Verdict, string> = {
@@ -48,4 +48,9 @@ export function PropertyThumb({ property, className }: { property: Property; cla
       )}
     </div>
   );
+}
+
+/** Asking price, or asking rent with "/month" for rentals. */
+export function formatAsking(p: Pick<Property, "askingPrice" | "listingType">): string {
+  return p.listingType === "rent" ? `${formatEur(p.askingPrice)}/month` : formatEur(p.askingPrice);
 }

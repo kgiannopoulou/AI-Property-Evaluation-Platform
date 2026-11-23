@@ -6,6 +6,8 @@ export const formatEur = (n: number) => eur.format(n);
 export const formatNumber = (n: number) => num.format(n);
 export const formatDate = (iso: string) => date.format(new Date(iso));
 export const formatPerSqm = (n: number) => `${eur.format(n)}/m²`;
+/** Monthly rent per m² keeps one decimal: €12.5/m². */
+export const formatRentPerSqm = (n: number) => `€${n.toFixed(1)}/m²`;
 export const formatPct = (n: number, signed = false) => `${signed && n > 0 ? "+" : ""}${n.toFixed(1)}%`;
 
 /** Compact euros for chart labels: €285k, €1.2m. */

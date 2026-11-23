@@ -8,6 +8,7 @@ backend can apply them on start-up, and runnable by hand with `psql`.
 | [`migrations/V1__initial_schema.sql`](migrations/V1__initial_schema.sql) | Plans, users, subscriptions, districts, properties, analyses, saved comparisons |
 | [`migrations/V2__evaluation_tables.sql`](migrations/V2__evaluation_tables.sql) | The full evaluation model: buildings, images, features, equipment, inspections, valuations, comparables, location data, expenses, renovations, investments, documents, saved properties, reports; profile and payment columns |
 | [`migrations/V3__geo_search.sql`](migrations/V3__geo_search.sql) | PostGIS search functions, automatic district assignment, latest-valuation view |
+| [`migrations/V4__property_submission.sql`](migrations/V4__property_submission.sql) | Property submission: purchase or rental, construction type, cooling, energy certificate, appliance checklist, photo areas and limits, building expense fields, `property_submissions` view |
 | [`tests/schema_test.sql`](tests/schema_test.sql) | Assertions for tables, indexes, constraints, generated columns, cascades and every geo search; runs in a rolled-back transaction |
 | [`seeds/demo_seed.sql`](seeds/demo_seed.sql) | Demo data for local development (real Athens coordinates, invented names and prices, all tagged `[DEMO]` / `demo-seed`) |
 
@@ -36,11 +37,12 @@ re-runnable) and runs the tests again alongside the seed data.
 | --- | --- |
 | `users` | Accounts and profiles: email (unique, case-insensitive), role, phone, company, locale, avatar key |
 | `user_preferences` | Mortgage assumptions and notification settings |
-| `properties` | Property details: type, size, rooms, floor, age, condition, energy class, heating, asking price, location point |
-| `property_images` | Uploaded photographs: storage key, type, size, room, order, one cover per property |
+| `properties` | Property details: purchase or rental, type, size, rooms, floor, age, construction type, condition, energy certificate and class, heating, cooling, asking price (monthly rent for rentals, range checked per listing type), location point |
+| `property_images` | Uploaded photographs: storage key, type, size, area (kitchen, bathroom, bedroom, living room, exterior, building entrance, other), order, one cover per property; at most 8 per area and 24 per property |
+| `appliance_checklist` | One row per checklist item: refrigerator, washing machine, dishwasher, oven and stove, air conditioning (working / damaged / missing / unknown), heating (available / unavailable / unknown), furniture (included / partial / not included); allowed statuses are checked per item |
 | `property_features` | Rooms, facilities and amenities, with quantity, area and condition |
 | `equipment` | Appliances and furniture: brand, age, condition, included in sale, photo it was detected in |
-| `buildings` | Building condition (structure, facade, roof, common areas), shared facilities, common charges; shared by several properties |
+| `buildings` | Building condition (structure, facade, roof, common areas), shared facilities, common charges (and whether they include heating), planned works; shared by several properties |
 | `inspections` | Visual inspection findings: category, severity, confidence, image region, status; from the AI inspector or a person |
 | `valuations` | Estimated value (low/mid/high), price per m², confidence, verdict, factors |
 | `comparables` | Similar property records: sales, listings and rentals with location, size and price |
@@ -69,6 +71,7 @@ erDiagram
     districts ||--o{ properties : "located in"
     properties ||--o{ property_images : has
     properties ||--o{ property_features : has
+    properties ||--o{ appliance_checklist : has
     properties ||--o{ equipment : has
     properties ||--o{ documents : has
     properties ||--o{ inspections : has

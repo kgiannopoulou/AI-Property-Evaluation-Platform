@@ -26,7 +26,8 @@ DO $$
 DECLARE
     expected text[] := ARRAY['users', 'properties', 'property_images', 'property_features', 'equipment',
         'buildings', 'inspections', 'valuations', 'comparables', 'location_data', 'expenses',
-        'renovations', 'investments', 'documents', 'saved_properties', 'subscriptions', 'reports'];
+        'renovations', 'investments', 'documents', 'saved_properties', 'subscriptions', 'reports',
+        'appliance_checklist'];
     missing text[];
 BEGIN
     SELECT array_agg(t) INTO missing
@@ -232,6 +233,83 @@ SELECT pg_temp.expect_error($$
 SELECT pg_temp.expect_error($$
     INSERT INTO comparables (source, source_ref, listing_type, location, property_type, size_sqm, price, observed_on, price_per_sqm)
     VALUES ('test', 'cx', 'sold', geo_point(23.73, 37.97), 'apartment', 80, 1, current_date, 5) $$, '428C9');  -- generated column is read-only
+
+-- 7b. Property submission (V4) ----------------------------------------------------------
+UPDATE properties
+SET construction_type = 'reinforced-concrete', cooling = 'split-units',
+    energy_certificate_status = 'issued', energy_certificate_number = 'TEST-123',
+    other_facilities = 'Shared laundry'
+WHERE id = '00000000-0000-0000-0000-0000000000a1';
+UPDATE buildings SET common_charges_include_heating = true, planned_works = 'Facade repair'
+WHERE id = '00000000-0000-0000-0000-0000000000b1';
+
+INSERT INTO appliance_checklist (property_id, item, status) VALUES
+    ('00000000-0000-0000-0000-0000000000a1', 'refrigerator', 'working'),
+    ('00000000-0000-0000-0000-0000000000a1', 'washing-machine', 'damaged'),
+    ('00000000-0000-0000-0000-0000000000a1', 'dishwasher', 'missing'),
+    ('00000000-0000-0000-0000-0000000000a1', 'oven-stove', 'unknown'),
+    ('00000000-0000-0000-0000-0000000000a1', 'air-conditioning', 'working'),
+    ('00000000-0000-0000-0000-0000000000a1', 'heating', 'available'),
+    ('00000000-0000-0000-0000-0000000000a1', 'furniture', 'partial');
+INSERT INTO property_features (property_id, category, name) VALUES
+    ('00000000-0000-0000-0000-0000000000a1', 'facility', 'security-door'),
+    ('00000000-0000-0000-0000-0000000000a1', 'facility', 'awnings');
+INSERT INTO property_images (property_id, storage_key, file_name, content_type, size_bytes, area)
+SELECT '00000000-0000-0000-0000-0000000000a1', 'sub/k' || g, 'k.jpg', 'image/jpeg', 100, 'kitchen'
+FROM generate_series(1, 8) g;
+
+-- Statuses are checked per item.
+SELECT pg_temp.expect_error($$
+    INSERT INTO appliance_checklist (property_id, item, status)
+    VALUES ('00000000-0000-0000-0000-0000000000a1', 'heating', 'working') $$, '23514');     -- appliance status on heating
+SELECT pg_temp.expect_error($$
+    UPDATE appliance_checklist SET status = 'included'
+    WHERE property_id = '00000000-0000-0000-0000-0000000000a1' AND item = 'dishwasher' $$, '23514'); -- furniture status on an appliance
+SELECT pg_temp.expect_error($$
+    INSERT INTO appliance_checklist (property_id, item, status)
+    VALUES ('00000000-0000-0000-0000-0000000000a1', 'sauna', 'working') $$, '23514');       -- unknown item
+SELECT pg_temp.expect_error($$
+    INSERT INTO appliance_checklist (property_id, item, status)
+    VALUES ('00000000-0000-0000-0000-0000000000a1', 'refrigerator', 'damaged') $$, '23505'); -- one row per item
+
+-- Photo limits: 8 per area, 24 per property.
+SELECT pg_temp.expect_error($$
+    INSERT INTO property_images (property_id, storage_key, file_name, content_type, size_bytes, area)
+    VALUES ('00000000-0000-0000-0000-0000000000a1', 'sub/k9', 'k.jpg', 'image/jpeg', 100, 'kitchen') $$, '23514');
+INSERT INTO property_images (property_id, storage_key, file_name, content_type, size_bytes, area)
+SELECT '00000000-0000-0000-0000-0000000000a1', 'sub/' || a || g, 'x.jpg', 'image/jpeg', 100, a
+FROM unnest(ARRAY['bathroom', 'bedroom']) a, generate_series(1, 8) g;
+SELECT pg_temp.expect_error($$
+    INSERT INTO property_images (property_id, storage_key, file_name, content_type, size_bytes, area)
+    VALUES ('00000000-0000-0000-0000-0000000000a1', 'sub/x25', 'x.jpg', 'image/jpeg', 100, 'exterior') $$, '23514');
+SELECT pg_temp.expect_error($$
+    INSERT INTO property_images (property_id, storage_key, file_name, content_type, size_bytes, area)
+    VALUES ('00000000-0000-0000-0000-0000000000a1', 'sub/x26', 'x.jpg', 'image/jpeg', 100, 'garage') $$, '23514');  -- unknown area
+
+-- Asking price ranges depend on the listing type; a certificate number needs an issued certificate.
+SELECT pg_temp.expect_error($$
+    UPDATE properties SET listing_type = 'rent' WHERE id = '00000000-0000-0000-0000-0000000000a1' $$, '23514'); -- €250k/month
+SELECT pg_temp.expect_error($$
+    UPDATE properties SET energy_certificate_status = 'none' WHERE id = '00000000-0000-0000-0000-0000000000a1' $$, '23514');
+
+DO $$
+DECLARE
+    s property_submissions%ROWTYPE;
+BEGIN
+    UPDATE properties SET listing_type = 'rent', asking_price = 950 WHERE id = '00000000-0000-0000-0000-0000000000a1';
+    SELECT * INTO s FROM property_submissions WHERE id = '00000000-0000-0000-0000-0000000000a1';
+    ASSERT s.listing_type = 'rent' AND s.asking_price = 950, 'rental with a monthly rent';
+    ASSERT round(s.lat::numeric, 4) = 37.9755 AND round(s.lon::numeric, 4) = 23.7348, 'location as lat/lon';
+    ASSERT s.district = 'Test district', 'district name';
+    ASSERT s.checklist ->> 'washing-machine' = 'damaged' AND s.checklist ->> 'furniture' = 'partial', 'checklist object';
+    ASSERT (SELECT count(*) FROM jsonb_object_keys(s.checklist)) = 7, 'all seven checklist items';
+    ASSERT s.facilities = ARRAY['awnings', 'security-door'], 'facilities';
+    ASSERT s.photos_per_area = '{"kitchen": 8, "bathroom": 8, "bedroom": 8}'::jsonb, format('photos per area %s', s.photos_per_area);
+    ASSERT s.monthly_common_charges = 60 AND s.common_charges_include_heating AND s.planned_works = 'Facade repair',
+        'building expenses';
+    UPDATE properties SET listing_type = 'sale', asking_price = 250000 WHERE id = '00000000-0000-0000-0000-0000000000a1';
+    DELETE FROM property_images WHERE storage_key LIKE 'sub/%';
+END $$;
 
 -- 8. Uniqueness and cascade rules -----------------------------------------------------------
 INSERT INTO property_images (property_id, storage_key, file_name, content_type, size_bytes, is_cover)

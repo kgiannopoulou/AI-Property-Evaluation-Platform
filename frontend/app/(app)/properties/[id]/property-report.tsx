@@ -17,11 +17,30 @@ import {
   SampleNotice,
   Stat,
 } from "@/components/ui";
-import { cn, formatDate, formatEur, formatPct, formatPerSqm } from "@/lib/format";
+import { cn, formatDate, formatEur, formatPct, formatPerSqm, formatRentPerSqm } from "@/lib/format";
 import { useHydrated } from "@/lib/local-store";
 import { deleteProperty, runAnalysis, useAnalyses, useProperties } from "@/properties/store";
-import { CONDITION_LABELS, HEATING_LABELS, PROPERTY_TYPE_LABELS, type Property } from "@/properties/types";
-import { SampleTag, VerdictBadge } from "@/properties/ui";
+import { photosByArea } from "@/properties/submission";
+import {
+  APPLIANCES,
+  APPLIANCE_LABELS,
+  APPLIANCE_STATUS_LABELS,
+  CERTIFICATE_LABELS,
+  CONDITION_LABELS,
+  CONSTRUCTION_LABELS,
+  COOLING_LABELS,
+  FACILITY_LABELS,
+  FURNITURE_STATUS_LABELS,
+  HEATING_LABELS,
+  HEATING_STATUS_LABELS,
+  LISTING_TYPE_LABELS,
+  PHOTO_AREA_LABELS,
+  PROPERTY_TYPE_LABELS,
+  type ApplianceStatus,
+  type HeatingStatus,
+  type Property,
+} from "@/properties/types";
+import { SampleTag, VerdictBadge, formatAsking } from "@/properties/ui";
 
 const TABS = [
   ["overview", "Overview"],
@@ -53,6 +72,8 @@ export function PropertyReport({ id }: { id: string }) {
     );
 
   const analysis = analyses[id];
+  const isRent = analysis?.mode === "rent";
+  const tabs = TABS.filter(([key]) => !(isRent && key === "renovation"));
 
   return (
     <>
@@ -67,7 +88,7 @@ export function PropertyReport({ id }: { id: string }) {
             {property.title} {property.isSample && <SampleTag />}
           </span>
         }
-        description={`${PROPERTY_TYPE_LABELS[property.propertyType]} · ${property.district}${property.address ? ` · ${property.address}` : ""}`}
+        description={`${LISTING_TYPE_LABELS[property.listingType]} · ${PROPERTY_TYPE_LABELS[property.propertyType]} · ${property.district}${property.address ? ` · ${property.address}` : ""}`}
         actions={
           <>
             <Button variant="secondary" onClick={() => runAnalysis(property)}>
@@ -112,7 +133,7 @@ export function PropertyReport({ id }: { id: string }) {
             className="no-print mt-8 mb-6 flex gap-1 overflow-x-auto border-b border-line"
             aria-label="Report sections"
           >
-            {TABS.map(([key, label]) => (
+            {tabs.map(([key, label]) => (
               <button
                 key={key}
                 onClick={() => setTab(key)}
@@ -137,11 +158,13 @@ export function PropertyReport({ id }: { id: string }) {
             <Inspection property={property} a={analysis} />
           </Panel>
           <Panel show={tab === "costs"}>
-            <Costs a={analysis} />
+            {isRent ? <TenancyCosts a={analysis} /> : <Costs a={analysis} />}
           </Panel>
-          <Panel show={tab === "renovation"}>
-            <Renovation property={property} a={analysis} />
-          </Panel>
+          {!isRent && (
+            <Panel show={tab === "renovation"}>
+              <Renovation property={property} a={analysis} />
+            </Panel>
+          )}
           <Panel show={tab === "negotiation"}>
             <Negotiation property={property} a={analysis} />
           </Panel>
@@ -161,25 +184,40 @@ function Panel({ show, children }: { show: boolean; children: ReactNode }) {
 }
 
 function Summary({ property, a }: { property: Property; a: AnalysisResult }) {
+  const rent = a.mode === "rent";
+  const perMonth = rent ? "/month" : "";
+  const perSqm = (n: number) => (rent ? formatRentPerSqm(n) : formatPerSqm(n));
   return (
     <Card className="grid gap-6 p-6 lg:grid-cols-[1fr_auto]">
       <div>
         <div className="flex flex-wrap items-center gap-3">
-          <p className="text-sm font-medium text-muted">Estimated value</p>
+          <p className="text-sm font-medium text-muted">{rent ? "Estimated market rent" : "Estimated value"}</p>
           <VerdictBadge verdict={a.verdict} deltaPct={a.deltaPct} />
         </div>
         <p className="tabular mt-1 text-3xl font-semibold tracking-tight">
           {formatEur(a.estimate.low)} – {formatEur(a.estimate.high)}
+          {rent && <span className="text-lg font-medium text-muted">/month</span>}
         </p>
         <p className="mt-1 text-sm text-muted">
-          Mid estimate <span className="tabular font-medium text-text">{formatEur(a.estimate.mid)}</span> versus asking{" "}
-          <span className="tabular font-medium text-text">{formatEur(property.askingPrice)}</span>
+          Mid estimate{" "}
+          <span className="tabular font-medium text-text">
+            {formatEur(a.estimate.mid)}
+            {perMonth}
+          </span>{" "}
+          versus asking <span className="tabular font-medium text-text">{formatAsking(property)}</span>
+          {rent && a.propertyValue && (
+            <>
+              {" "}
+              · estimated sale value{" "}
+              <span className="tabular font-medium text-text">{formatEur(a.propertyValue)}</span>
+            </>
+          )}
         </p>
         <ValueRangeBar low={a.estimate.low} mid={a.estimate.mid} high={a.estimate.high} asking={property.askingPrice} />
         <div className="grid grid-cols-3 gap-4 border-t border-line pt-4">
-          <Stat label="Asking / m²" value={formatPerSqm(a.pricePerSqm.asking)} />
-          <Stat label="Estimate / m²" value={formatPerSqm(a.pricePerSqm.estimated)} />
-          <Stat label="Area ref. / m²" value={formatPerSqm(a.pricePerSqm.district)} />
+          <Stat label={rent ? "Asking rent / m²" : "Asking / m²"} value={perSqm(a.pricePerSqm.asking)} />
+          <Stat label="Estimate / m²" value={perSqm(a.pricePerSqm.estimated)} />
+          <Stat label="Area ref. / m²" value={perSqm(a.pricePerSqm.district)} />
         </div>
       </div>
       <div className="flex flex-col items-center gap-4 border-line lg:w-60 lg:border-l lg:pl-6">
@@ -197,8 +235,9 @@ function Summary({ property, a }: { property: Property; a: AnalysisResult }) {
 }
 
 function Overview({ property, a }: { property: Property; a: AnalysisResult }) {
+  const rent = a.mode === "rent";
   const compRows = [
-    { label: "This property (asking)", value: a.pricePerSqm.asking, highlight: true },
+    { label: rent ? "This property (asking rent)" : "This property (asking)", value: a.pricePerSqm.asking, highlight: true },
     { label: "Estimate", value: a.pricePerSqm.estimated },
     ...a.comparables.map((c) => ({
       label: c.label,
@@ -212,7 +251,7 @@ function Overview({ property, a }: { property: Property; a: AnalysisResult }) {
         <Card>
           <CardHeader
             title="What moves the value"
-            description={`Adjustments to the ${property.district} reference price`}
+            description={`Adjustments to the ${property.district} reference ${rent ? "rent" : "price"}`}
           />
           <div className="px-5 py-2">
             {a.factors.length ? (
@@ -225,11 +264,11 @@ function Overview({ property, a }: { property: Property; a: AnalysisResult }) {
         <Card>
           <CardHeader
             title="Market comparator"
-            description="Price per m² against similar properties"
+            description={rent ? "Monthly rent per m² against similar lettings" : "Price per m² against similar properties"}
             action={<Badge tone="gold">Generated</Badge>}
           />
           <div className="p-5">
-            <PricePerSqmBars rows={compRows} />
+            <PricePerSqmBars rows={compRows} format={rent ? formatRentPerSqm : formatPerSqm} />
             <p className="mt-4 text-xs text-subtle">
               Comparables are generated from the estimate for layout purposes, not real listings.
             </p>
@@ -238,32 +277,128 @@ function Overview({ property, a }: { property: Property; a: AnalysisResult }) {
       </div>
       <Card>
         <CardHeader title="Property details" />
-        <dl className="grid gap-x-6 gap-y-4 p-5 text-sm sm:grid-cols-3 lg:grid-cols-4">
-          {(
+        <DetailList
+          rows={[
+            ["Listing", LISTING_TYPE_LABELS[property.listingType]],
+            ["Asking", formatAsking(property)],
+            ["Size", `${property.sizeSqm} m²`],
+            ["Bedrooms / baths", `${property.bedrooms} / ${property.bathrooms}`],
+            ["Floor", property.floor === 0 ? "Ground" : property.floor],
+            ["Year built", property.yearBuilt],
+            ["Renovated", property.renovatedYear ?? "—"],
+            ["Construction", CONSTRUCTION_LABELS[property.constructionType]],
+            ["Condition", CONDITION_LABELS[property.condition]],
             [
-              ["Size", `${property.sizeSqm} m²`],
-              ["Bedrooms / baths", `${property.bedrooms} / ${property.bathrooms}`],
-              ["Floor", property.floor === 0 ? "Ground" : property.floor],
-              ["Year built", property.yearBuilt],
-              ["Renovated", property.renovatedYear ?? "—"],
-              ["Condition", CONDITION_LABELS[property.condition]],
-              ["Energy class", property.energyClass],
-              ["Heating", HEATING_LABELS[property.heating]],
-              ["Balcony", `${property.balconySqm} m²`],
-              ["Elevator", property.elevator ? "Yes" : "No"],
-              ["Parking", property.parking ? "Yes" : "No"],
-              ["Storage", property.storage ? "Yes" : "No"],
-            ] as [string, ReactNode][]
-          ).map(([k, v]) => (
-            <div key={k}>
-              <dt className="text-xs text-muted">{k}</dt>
-              <dd className="mt-0.5 font-medium">{v}</dd>
-            </div>
-          ))}
-        </dl>
+              "Energy",
+              `${property.energyClass} · ${CERTIFICATE_LABELS[property.energyCertificate.status].toLowerCase()}${
+                property.energyCertificate.number ? ` (${property.energyCertificate.number})` : ""
+              }`,
+            ],
+            ["Heating", HEATING_LABELS[property.heating]],
+            ["Cooling", COOLING_LABELS[property.cooling]],
+            ["Balcony", property.balconySqm ? `${property.balconySqm} m²` : "None"],
+            ["Elevator", property.elevator ? "Yes" : "No"],
+            ["Parking", property.parking ? "Yes" : "No"],
+            ["Storage", property.storage ? "Yes" : "No"],
+            [
+              "Location",
+              property.location ? `${property.location.lat.toFixed(5)}, ${property.location.lon.toFixed(5)}` : "Not set",
+            ],
+          ]}
+        />
         {property.notes && <p className="border-t border-line px-5 py-4 text-sm text-muted">{property.notes}</p>}
       </Card>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader title="Furniture and appliances" description="Checklist from the submission" />
+          <ul className="divide-y divide-line">
+            {APPLIANCES.map((k) => (
+              <ChecklistItem
+                key={k}
+                label={APPLIANCE_LABELS[k]}
+                value={APPLIANCE_STATUS_LABELS[property.checklist.appliances[k]]}
+                tone={APPLIANCE_TONE[property.checklist.appliances[k]]}
+              />
+            ))}
+            <ChecklistItem
+              label="Heating"
+              value={HEATING_STATUS_LABELS[property.checklist.heating]}
+              tone={HEATING_TONE[property.checklist.heating]}
+            />
+            <ChecklistItem
+              label="Furniture"
+              value={FURNITURE_STATUS_LABELS[property.checklist.furniture]}
+              tone={property.checklist.furniture === "not-included" ? "neutral" : "positive"}
+            />
+          </ul>
+          {property.checklist.otherItems && (
+            <p className="border-t border-line px-5 py-3 text-sm text-muted">
+              Also included: {property.checklist.otherItems}
+            </p>
+          )}
+        </Card>
+        <Card>
+          <CardHeader title="Building and facilities" />
+          <DetailList
+            columns={2}
+            rows={[
+              [
+                "Common charges",
+                property.buildingExpenses.monthlyCommonCharges === null
+                  ? "Not known"
+                  : `${formatEur(property.buildingExpenses.monthlyCommonCharges)}/month`,
+              ],
+              ["Includes heating", property.buildingExpenses.includesHeating ? "Yes" : "No"],
+              ["Planned works", property.buildingExpenses.plannedWorks || "None reported"],
+            ]}
+          />
+          <div className="border-t border-line px-5 py-4">
+            <p className="text-xs text-muted">Facilities</p>
+            {property.facilities.length || property.otherFacilities ? (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {property.facilities.map((f) => (
+                  <Badge key={f}>{FACILITY_LABELS[f]}</Badge>
+                ))}
+                {property.otherFacilities && <Badge>{property.otherFacilities}</Badge>}
+              </div>
+            ) : (
+              <p className="mt-1 text-sm">None listed</p>
+            )}
+          </div>
+        </Card>
+      </div>
     </>
+  );
+}
+
+type Tone = "neutral" | "positive" | "negative" | "warning";
+const APPLIANCE_TONE: Record<ApplianceStatus, Tone> = {
+  working: "positive",
+  damaged: "negative",
+  missing: "warning",
+  unknown: "neutral",
+};
+const HEATING_TONE: Record<HeatingStatus, Tone> = { available: "positive", unavailable: "negative", unknown: "neutral" };
+
+function ChecklistItem({ label, value, tone }: { label: string; value: string; tone: Tone }) {
+  return (
+    <li className="flex items-center justify-between gap-3 px-5 py-2.5 text-sm">
+      <span>{label}</span>
+      <Badge tone={tone}>{value}</Badge>
+    </li>
+  );
+}
+
+function DetailList({ rows, columns = 4 }: { rows: [string, ReactNode][]; columns?: 2 | 4 }) {
+  return (
+    <dl className={cn("grid gap-x-6 gap-y-4 p-5 text-sm sm:grid-cols-2", columns === 4 && "sm:grid-cols-3 lg:grid-cols-4")}>
+      {rows.map(([k, v]) => (
+        <div key={k}>
+          <dt className="text-xs text-muted">{k}</dt>
+          <dd className="mt-0.5 font-medium">{v}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -302,14 +437,27 @@ function Inspection({ property, a }: { property: Property; a: AnalysisResult }) 
       {property.photos.length > 0 && (
         <Card>
           <CardHeader title="Photographs" description="Queued for visual defect detection when the AI service ships" />
-          <ul className="grid grid-cols-2 gap-3 p-5 sm:grid-cols-4">
-            {property.photos.map((p) => (
-              <li key={p.id} className="aspect-[4/3] overflow-hidden rounded-lg ring-1 ring-line">
-                {/* eslint-disable-next-line @next/next/no-img-element -- local data URL */}
-                <img src={p.dataUrl} alt={p.name} className="h-full w-full object-cover" />
-              </li>
+          <div className="space-y-5 p-5">
+            {photosByArea(property.photos).map((g) => (
+              <div key={g.area}>
+                <p className="mb-2 text-xs font-medium text-muted">
+                  {PHOTO_AREA_LABELS[g.area]} <span className="tabular">({g.photos.length})</span>
+                </p>
+                <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {g.photos.map((p) => (
+                    <li key={p.id} className="aspect-[4/3] overflow-hidden rounded-lg ring-1 ring-line">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- local data URL */}
+                      <img
+                        src={p.dataUrl}
+                        alt={`${PHOTO_AREA_LABELS[g.area]}: ${p.name}`}
+                        className="h-full w-full object-cover"
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         </Card>
       )}
     </>
@@ -401,6 +549,73 @@ function Costs({ a }: { a: AnalysisResult }) {
   );
 }
 
+function TenancyCosts({ a }: { a: AnalysisResult }) {
+  const t = a.tenancy;
+  const f = a.financial;
+  if (!t) return null;
+  const purchaseCosts = f.totalAcquisition - (f.deposit + f.loanAmount);
+  const utilities = t.monthlyBreakdown.find((x) => x.label.startsWith("Utilities"))?.amount ?? 0;
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      <Card>
+        <CardHeader title="Renting it" description="Move-in costs and monthly living costs" />
+        <div className="space-y-6 p-5">
+          <div className="grid grid-cols-2 gap-4">
+            <Stat label="To move in" value={formatEur(t.totalMoveIn)} hint="Rent, deposit, fees, items to buy" />
+            <Stat label="Per month" value={formatEur(t.monthlyCost)} hint="Rent, common charges, utilities" />
+          </div>
+          <StackedBar parts={t.moveInCosts} />
+          <div className="rounded-lg bg-canvas p-4 text-sm">
+            {t.monthlyBreakdown.map((x) => (
+              <div key={x.label} className="mt-2 flex justify-between first:mt-0">
+                <span className="text-muted">{x.label}</span>
+                <span className="tabular font-medium">{formatEur(x.amount)}</span>
+              </div>
+            ))}
+            <div className="mt-2 flex justify-between border-t border-line pt-2 font-semibold">
+              <span>Total per month</span>
+              <span className="tabular">{formatEur(t.monthlyCost)}</span>
+            </div>
+          </div>
+          <p className="text-xs text-subtle">
+            The deposit is returned at the end of the lease. Utilities are a size-based estimate.
+          </p>
+        </div>
+      </Card>
+      <Card>
+        <CardHeader title="Buying instead" description={`At the estimated value of ${formatEur(a.propertyValue ?? 0)}`} />
+        <div className="space-y-6 p-5">
+          <div className="grid grid-cols-2 gap-4">
+            <Stat label="Cash needed" value={formatEur(f.deposit + purchaseCosts)} hint="Deposit + purchase costs" />
+            <Stat
+              label="Ownership / month"
+              value={formatEur(f.monthlyOwnership)}
+              hint={`${formatEur(f.loanAmount)} at ${formatPct(f.annualRate * 100)} over ${f.years} yrs`}
+            />
+          </div>
+          <div className="rounded-lg bg-canvas p-4 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted">Renting, per month</span>
+              <span className="tabular font-medium">{formatEur(t.monthlyCost)}</span>
+            </div>
+            <div className="mt-2 flex justify-between">
+              <span className="text-muted">Owning, per month (with utilities)</span>
+              <span className="tabular font-medium">{formatEur(f.monthlyOwnership + utilities)}</span>
+            </div>
+          </div>
+          <p className="text-xs text-subtle">
+            Owning builds equity but ties up cash. Mortgage assumptions can be changed in{" "}
+            <Link href="/settings" className="underline">
+              settings
+            </Link>
+            .
+          </p>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 function Renovation({ property, a }: { property: Property; a: AnalysisResult }) {
   return (
     <div className="grid gap-4 md:grid-cols-3">
@@ -448,16 +663,22 @@ function Renovation({ property, a }: { property: Property; a: AnalysisResult }) 
 
 function Negotiation({ property, a }: { property: Property; a: AnalysisResult }) {
   const n = a.negotiation;
+  const rent = a.mode === "rent";
+  const money = (v: number) => (rent ? `${formatEur(v)}/month` : formatEur(v));
   const steps = [
     { label: "Opening offer", value: n.openingOffer, hint: "Start here" },
-    { label: "Target price", value: n.targetPrice, hint: "Where you aim to settle" },
+    { label: rent ? "Target rent" : "Target price", value: n.targetPrice, hint: "Where you aim to settle" },
     { label: "Walk-away maximum", value: n.maxOffer, hint: "Do not exceed" },
-    { label: "Asking price", value: property.askingPrice, hint: "Seller's position" },
+    {
+      label: rent ? "Asking rent" : "Asking price",
+      value: property.askingPrice,
+      hint: rent ? "Landlord's position" : "Seller's position",
+    },
   ];
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
       <Card>
-        <CardHeader title="Negotiation assistant" description="Suggested offer range" />
+        <CardHeader title="Negotiation assistant" description={rent ? "Suggested rent offers" : "Suggested offer range"} />
         <ol className="divide-y divide-line">
           {steps.map((s, i) => (
             <li key={s.label} className="flex items-center gap-4 px-5 py-4">
@@ -474,7 +695,7 @@ function Negotiation({ property, a }: { property: Property; a: AnalysisResult })
                 <p className="text-xs text-muted">{s.hint}</p>
               </div>
               <div className="text-right">
-                <p className="tabular font-semibold">{formatEur(s.value)}</p>
+                <p className="tabular font-semibold">{money(s.value)}</p>
                 <p className="tabular text-xs text-muted">
                   {formatPct(((s.value - property.askingPrice) / property.askingPrice) * 100, true)} vs asking
                 </p>

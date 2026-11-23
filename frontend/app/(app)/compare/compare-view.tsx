@@ -9,7 +9,7 @@ import { ButtonLink, Card, EmptyState, PageHeader, SampleNotice } from "@/compon
 import { cn, formatEur, formatPct, formatPerSqm } from "@/lib/format";
 import { useHydrated } from "@/lib/local-store";
 import { useAnalyses, useProperties } from "@/properties/store";
-import { PROPERTY_TYPE_LABELS, type Property } from "@/properties/types";
+import { LISTING_TYPE_LABELS, PROPERTY_TYPE_LABELS, type Property } from "@/properties/types";
 import { PropertyThumb, VerdictBadge } from "@/properties/ui";
 
 const MAX = 4;
@@ -26,8 +26,9 @@ const ROWS: { group: string; rows: Row[] }[] = [
   {
     group: "Price",
     rows: [
-      { label: "Asking price", value: (p) => p.askingPrice, format: formatEur, better: "lower" },
-      { label: "Estimated value", value: (_, a) => a.estimate.mid, format: formatEur },
+      { label: "Listing", value: (p) => LISTING_TYPE_LABELS[p.listingType] },
+      { label: "Asking price or rent", value: (p) => p.askingPrice, format: formatEur, better: "lower" },
+      { label: "Estimated value", value: (_, a) => a.propertyValue ?? a.estimate.mid, format: formatEur },
       { label: "Asking vs estimate", value: (_, a) => a.deltaPct, format: (v) => formatPct(v, true), better: "lower" },
       { label: "Asking per m²", value: (_, a) => a.pricePerSqm.asking, format: formatPerSqm, better: "lower" },
     ],
@@ -118,6 +119,12 @@ export function CompareView() {
         description="Side by side on price, costs, investment and condition. The best value in each row is highlighted."
       />
       <SampleNotice className="mb-5" />
+      {new Set(chosen.map((p) => p.listingType)).size > 1 && (
+        <p className="mb-5 rounded-lg border border-line bg-canvas px-3.5 py-2.5 text-sm text-muted">
+          You are comparing purchases with rentals: asking figures are sale prices for one and monthly rents for the
+          other, so the price rows are not directly comparable.
+        </p>
+      )}
 
       <div className="no-print mb-5 flex flex-wrap gap-2" role="group" aria-label="Choose properties to compare">
         {analysed.map((p) => {
