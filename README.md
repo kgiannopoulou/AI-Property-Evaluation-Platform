@@ -3,9 +3,10 @@
 An independent second opinion on a property **before you make an offer**: valuation range, asking-price verdict,
 visible defects, ownership and renovation costs, investment returns and a negotiation range you can defend, all in one report.
 
-> **Status: Phase 3 of the roadmap (website design with sample results).** The website runs end to end in the
-> browser using a rule-based **sample engine** with illustrative reference prices. It is not market data, does no
-> image analysis and is not a valuation. Every sample result is labelled as such in the interface.
+> **Status: Phase 4 of the roadmap (database).** The PostgreSQL + PostGIS schema for every evaluation module is in
+> place and tested in CI (see [`database/`](database)). The website still runs in the browser using a rule-based
+> **sample engine** with illustrative reference prices. It is not market data, does no image analysis and is not a
+> valuation. Every sample result is labelled as such in the interface.
 
 ## Architecture
 
@@ -14,7 +15,7 @@ visible defects, ownership and renovation costs, investment returns and a negoti
 | [`frontend/`](frontend) | TypeScript · React 19 · Next.js 16 · Tailwind CSS 4 | Website, dashboard, property forms, photo uploads, charts and reports |
 | [`backend/`](backend) | Java 21 · Spring Boot 4 | Accounts, properties, permissions, subscriptions, calculations, comparisons and business rules |
 | [`ai-service/`](ai-service) | Node.js · TypeScript | Image analysis, visual defect and equipment detection, AI report text, AI model calls |
-| [`database/`](database) | PostgreSQL · PostGIS | Users, properties, prices, analysis results, geography and saved comparisons |
+| [`database/`](database) | PostgreSQL · PostGIS | 17 core tables (users, properties, images, features, equipment, buildings, inspections, valuations, comparables, location data, expenses, renovations, investments, documents, saved properties, subscriptions, reports) and PostGIS search for nearby facilities and comparables |
 
 ```
 Browser ──► frontend (Next.js) ──► backend (Spring Boot) ──► PostgreSQL + PostGIS
@@ -42,7 +43,10 @@ AI vision API for photo analysis, and Vercel plus a Java/Node host for deploymen
 │   └── users · properties · valuation · financial · renovation · location · subscriptions · reports · common
 ├── ai-service/src/
 │   └── image-analysis · defect-detection · equipment-detection · report-generation
-├── database/migrations/     V1__initial_schema.sql (PostGIS)
+├── database/
+│   ├── migrations/          V1 initial schema · V2 evaluation tables · V3 PostGIS search
+│   ├── tests/               schema and geo-search assertions (rolled back)
+│   └── seeds/               demo data for local development
 ├── compose.yaml             local PostGIS database
 └── .github/workflows/ci.yml lint, build and tests for every part + migration check
 ```
@@ -80,6 +84,7 @@ cd ai-service && npm install && npm run dev
 
 # Database (PostGIS on port 5437, schema applied on first start)
 docker compose up -d db
+docker compose exec -T db psql -U property -d property_intelligence < database/seeds/demo_seed.sql   # optional demo data
 ```
 
 Checks:
@@ -88,6 +93,7 @@ Checks:
 cd frontend && npm run lint && npm run build
 cd backend && ./mvnw test
 cd ai-service && npm run typecheck && npm test
+docker compose exec -T db psql -U property -d property_intelligence -v ON_ERROR_STOP=1 < database/tests/schema_test.sql
 ```
 
 ## Roadmap
@@ -96,8 +102,9 @@ cd ai-service && npm run typecheck && npm test
 | --- | --- | --- |
 | 1 | Development environment: VS Code, JDK 21, Node.js LTS, PostgreSQL, Git/GitHub; Supabase, OpenAI and Vercel accounts | Done |
 | 2 | Project structure: frontend, backend, AI service and database in one repository | Done |
-| 3 | Website design: all pages navigable, property form submits, analysis shows sample results | **Done** |
-| 4 | Backend API and database: accounts, properties and calculations move to Spring Boot + PostgreSQL | Next |
+| 3 | Website design: all pages navigable, property form submits, analysis shows sample results | Done |
+| 4 | Database: 17 core tables, PostGIS geographical search (nearby pharmacies, transport, schools; comparables), constraints, demo seed, tests in CI | **Done** |
+| 4b | Backend API: accounts, properties and calculations move from browser storage to Spring Boot on this schema | Next |
 | 5 | AI Home Inspector: photo upload to object storage, vision model defect and equipment detection | Planned |
 | 6 | Location Intelligence, Market Comparator with real data, Document Checker, AI-written reports | Planned |
 | 7 | Subscriptions and payments, deployment | Planned |
