@@ -5,3 +5,6 @@
 Thumbs.db
 .vscode/
 .idea/
+
+# Locally stored uploads (development photo storage)
+.data/

@@ -316,13 +316,13 @@ function inspection(p: Property, currentYear: number): InspectionFinding[] {
     p.photos.length === 0
       ? {
           area: "Photographs",
-          finding: "No photographs uploaded — add photos of each room so the AI Home Inspector can run when it ships.",
+          finding: "No photographs uploaded — add photos of each room so the AI Home Inspector can examine them.",
           severity: "info",
           estimatedCost: 0,
         }
       : {
           area: "Photographs",
-          finding: `${p.photos.length} photograph${p.photos.length === 1 ? "" : "s"} across ${areas.size} area${areas.size === 1 ? "" : "s"} received. Visual defect detection is not active yet; findings above are rule-based.`,
+          finding: `${p.photos.length} photograph${p.photos.length === 1 ? "" : "s"} across ${areas.size} area${areas.size === 1 ? "" : "s"} received; the AI Home Inspector examines them for visible defects. The checks in this list are rule-based.`,
           severity: "info",
           estimatedCost: 0,
         },

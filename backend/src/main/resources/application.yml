@@ -1,6 +1,14 @@
 spring:
   application:
     name: property-backend
+  config:
+    # Local development: read the repository's .env (KEY=value lines are valid properties).
+    import: optional:file:../.env[.properties]
+  servlet:
+    multipart:
+      # 24 photos of up to 5 MB each (the vision API's per-image limit).
+      max-file-size: 5MB
+      max-request-size: 125MB
 
 server:
   port: ${PORT:8080}
@@ -11,5 +19,14 @@ management:
       exposure:
         include: health,info
 
-# Secrets (database password, Stripe and storage keys) come from environment variables
-# and are never sent to the browser. See .env.example at the repository root.
+app:
+  cors:
+    allowed-origins: ${FRONTEND_ORIGIN:http://localhost:3000}
+  inspection:
+    ai-service-url: ${AI_SERVICE_URL:http://localhost:8090}
+    ai-service-token: ${AI_SERVICE_TOKEN:}
+    ai-timeout: ${AI_SERVICE_TIMEOUT:5m}
+    photo-dir: ${PHOTO_DIR:../.data/photos}
+
+# Secrets (database password, AI service token, Stripe and storage keys) come from environment
+# variables and are never sent to the browser. See .env.example at the repository root.

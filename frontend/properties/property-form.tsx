@@ -468,7 +468,7 @@ export function PropertyForm() {
       <Section
         step={7}
         title="Photographs"
-        description="Add photos for each area. They are stored downscaled in this browser; the AI Home Inspector will analyse them in a later phase."
+        description="Add photos for each area. They are stored downscaled in this browser; the AI Home Inspector examines them for visible defects from the report page."
       >
         <div className="sm:col-span-2">
           <PhotoUploadByArea photos={form.photos} onChange={(photos) => set("photos", photos)} />

@@ -20,6 +20,7 @@ import {
 import { cn, formatDate, formatEur, formatPct, formatPerSqm, formatRentPerSqm } from "@/lib/format";
 import { useHydrated } from "@/lib/local-store";
 import { deleteProperty, runAnalysis, useAnalyses, useProperties } from "@/properties/store";
+import { AiInspectionPanel } from "@/inspection/ai-inspection-panel";
 import { photosByArea } from "@/properties/submission";
 import {
   APPLIANCES,
@@ -413,10 +414,11 @@ function Inspection({ property, a }: { property: Property; a: AnalysisResult }) 
   const total = a.inspection.reduce((s, f) => s + f.estimatedCost, 0);
   return (
     <>
+      <AiInspectionPanel property={property} />
       <Card>
         <CardHeader
-          title="AI Home Inspector"
-          description="Potential issues to check during a viewing or survey"
+          title="Rule-based checks"
+          description="From the submitted details: issues to check during a viewing or survey"
           action={<span className="tabular text-sm font-semibold">≈ {formatEur(total)}</span>}
         />
         <ul className="divide-y divide-line">
@@ -436,7 +438,7 @@ function Inspection({ property, a }: { property: Property; a: AnalysisResult }) 
       </Card>
       {property.photos.length > 0 && (
         <Card>
-          <CardHeader title="Photographs" description="Queued for visual defect detection when the AI service ships" />
+          <CardHeader title="Photographs" description="Submitted with the property, by area" />
           <div className="space-y-5 p-5">
             {photosByArea(property.photos).map((g) => (
               <div key={g.area}>

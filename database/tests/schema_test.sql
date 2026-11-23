@@ -27,7 +27,7 @@ DECLARE
     expected text[] := ARRAY['users', 'properties', 'property_images', 'property_features', 'equipment',
         'buildings', 'inspections', 'valuations', 'comparables', 'location_data', 'expenses',
         'renovations', 'investments', 'documents', 'saved_properties', 'subscriptions', 'reports',
-        'appliance_checklist'];
+        'appliance_checklist', 'ai_inspection_runs'];
     missing text[];
 BEGIN
     SELECT array_agg(t) INTO missing
@@ -309,6 +309,41 @@ BEGIN
         'building expenses';
     UPDATE properties SET listing_type = 'sale', asking_price = 250000 WHERE id = '00000000-0000-0000-0000-0000000000a1';
     DELETE FROM property_images WHERE storage_key LIKE 'sub/%';
+END $$;
+
+-- 7c. AI inspections (V5) ------------------------------------------------------------------
+INSERT INTO property_images (id, property_id, storage_key, file_name, content_type, size_bytes, area)
+VALUES ('00000000-0000-0000-0000-0000000000f1', '00000000-0000-0000-0000-0000000000a1', 'ai/1.jpg', '1.jpg', 'image/jpeg', 100, 'bathroom');
+INSERT INTO ai_inspection_runs (id, property_id, model, served_by, photos_submitted, photos_analysed, area_conditions)
+VALUES ('00000000-0000-0000-0000-0000000000e9', '00000000-0000-0000-0000-0000000000a1', 'claude-opus-5-5',
+        '{claude-opus-5-5}', 1, 1, '[{"area": "bathroom", "condition": "fair", "summary": "Dated"}]');
+INSERT INTO inspections (property_id, run_id, image_id, source, engine, room, category, severity, title, description,
+                         confidence, assessment, limitation, recommendation)
+VALUES ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000e9', '00000000-0000-0000-0000-0000000000f1',
+        'ai-vision', 'claude-opus-5-5', 'bathroom', 'mould-damp', 'moderate', 'Possible: mould on ceiling',
+        'Dark patches above the shower.', 80, 'potential-concern', 'Photos cannot show how far moisture has spread.',
+        'Ask for a moisture survey.');
+
+SELECT pg_temp.expect_error($$
+    INSERT INTO inspections (property_id, run_id, image_id, source, category, severity, title, confidence, assessment, recommendation)
+    VALUES ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000e9', '00000000-0000-0000-0000-0000000000f1',
+            'ai-vision', 'electrical', 'major', 'Scorched socket', 70, 'observed', 'Electrician') $$, '23514');  -- hidden risk stated as observed
+SELECT pg_temp.expect_error($$
+    INSERT INTO inspections (property_id, source, category, severity, title, confidence, assessment, recommendation)
+    VALUES ('00000000-0000-0000-0000-0000000000a1', 'ai-vision', 'flooring', 'minor', 'Chipped tile', 70, 'observed', 'Replace') $$, '23514'); -- AI finding without run and photo
+SELECT pg_temp.expect_error($$
+    INSERT INTO inspections (property_id, source, category, severity, title, cost_low, cost_high)
+    VALUES ('00000000-0000-0000-0000-0000000000a1', 'manual', 'flooring', 'minor', 'Tiles', 500, 100) $$, '23514');  -- cost range reversed / no basis
+SELECT pg_temp.expect_error($$
+    INSERT INTO ai_inspection_runs (property_id, model, photos_submitted, photos_analysed)
+    VALUES ('00000000-0000-0000-0000-0000000000a1', 'm', 2, 3) $$, '23514');                                           -- more analysed than submitted
+
+DO $$
+BEGIN
+    ASSERT (SELECT count(*) FROM inspections WHERE run_id = '00000000-0000-0000-0000-0000000000e9') = 1, 'finding linked to its run';
+    DELETE FROM ai_inspection_runs WHERE id = '00000000-0000-0000-0000-0000000000e9';
+    ASSERT NOT EXISTS (SELECT 1 FROM inspections WHERE run_id = '00000000-0000-0000-0000-0000000000e9'), 'run delete removes its findings';
+    DELETE FROM property_images WHERE storage_key = 'ai/1.jpg';
 END $$;
 
 -- 8. Uniqueness and cascade rules -----------------------------------------------------------

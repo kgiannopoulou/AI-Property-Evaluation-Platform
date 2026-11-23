@@ -14,6 +14,7 @@ npm run build
 - `properties/submission.ts` holds the property submission rules: form state, validation, coordinate parsing and the upgrade of records saved by older versions. It has no React or browser dependencies, so it is unit-tested with Node's built-in test runner (`*.test.ts`, run with native TypeScript type stripping).
 - `analysis/sample-engine.ts` is the stand-in for the Java valuation service and the AI service. It is deterministic and rule-based, and uses the **illustrative** values in `analysis/reference-data.ts`.
 - `properties/store.ts` keeps properties and analyses in `localStorage`; the backend API will replace it.
+- `inspection/` is the AI Home Inspector client: it posts the property's photos to the backend (`NEXT_PUBLIC_API_URL`, set in `.env.local`) and shows the findings. Without that variable the panel explains how to connect it.
 - Charts are dependency-free SVG/CSS (`components/charts.tsx`).
 
 See the [root README](../README.md) for the full architecture and roadmap.

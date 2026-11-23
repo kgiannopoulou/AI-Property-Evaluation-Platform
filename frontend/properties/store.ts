@@ -4,6 +4,7 @@ import { analyzeProperty } from "@/analysis/sample-engine";
 import type { AnalysisResult } from "@/analysis/types";
 import { createLocalStore, useLocalStore } from "@/lib/local-store";
 import { preferencesStore } from "@/lib/session";
+import { deleteAiInspection } from "@/inspection/api";
 import { SAMPLE_PROPERTIES } from "./sample-data";
 import { normalizeProperty } from "./submission";
 import type { Property, PropertyInput } from "./types";
@@ -43,6 +44,7 @@ export function createProperty(input: PropertyInput): Property {
 
 export function deleteProperty(id: string): void {
   propertiesStore.set((prev) => prev.filter((p) => p.id !== id));
+  deleteAiInspection(id);
   analysesStore.set((prev) => {
     const next = { ...prev };
     delete next[id];

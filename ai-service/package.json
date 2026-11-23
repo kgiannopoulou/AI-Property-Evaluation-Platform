@@ -2,19 +2,23 @@
   "name": "property-ai-service",
   "version": "0.1.0",
   "private": true,
-  "description": "AI service: image analysis, visual defect detection, equipment detection and AI report generation",
+  "description": "AI service: vision-model inspection of property photographs (defects, missing items, condition) returned as structured findings",
   "type": "module",
   "engines": {
     "node": ">=22.18"
   },
   "scripts": {
-    "dev": "node --watch src/server.ts",
-    "start": "node src/server.ts",
+    "dev": "node --env-file-if-exists=../.env --watch src/server.ts",
+    "start": "node --env-file-if-exists=../.env src/server.ts",
     "typecheck": "tsc --noEmit",
     "test": "node --test \"test/**/*.test.ts\""
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.12.0",
+    "zod": "^4.6.7"
   }
 }

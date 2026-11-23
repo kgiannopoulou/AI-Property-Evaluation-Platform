@@ -8,6 +8,7 @@ backend can apply them on start-up, and runnable by hand with `psql`.
 | [`migrations/V1__initial_schema.sql`](migrations/V1__initial_schema.sql) | Plans, users, subscriptions, districts, properties, analyses, saved comparisons |
 | [`migrations/V2__evaluation_tables.sql`](migrations/V2__evaluation_tables.sql) | The full evaluation model: buildings, images, features, equipment, inspections, valuations, comparables, location data, expenses, renovations, investments, documents, saved properties, reports; profile and payment columns |
 | [`migrations/V3__geo_search.sql`](migrations/V3__geo_search.sql) | PostGIS search functions, automatic district assignment, latest-valuation view |
+| [`migrations/V5__ai_inspections.sql`](migrations/V5__ai_inspections.sql) | AI Home Inspector: `ai_inspection_runs`, AI finding columns on `inspections` (assessment, limitation, recommendation, cost range and basis, related photos); AI findings in hidden-risk categories must be potential concerns |
 | [`migrations/V4__property_submission.sql`](migrations/V4__property_submission.sql) | Property submission: purchase or rental, construction type, cooling, energy certificate, appliance checklist, photo areas and limits, building expense fields, `property_submissions` view |
 | [`tests/schema_test.sql`](tests/schema_test.sql) | Assertions for tables, indexes, constraints, generated columns, cascades and every geo search; runs in a rolled-back transaction |
 | [`seeds/demo_seed.sql`](seeds/demo_seed.sql) | Demo data for local development (real Athens coordinates, invented names and prices, all tagged `[DEMO]` / `demo-seed`) |
@@ -43,7 +44,8 @@ re-runnable) and runs the tests again alongside the seed data.
 | `property_features` | Rooms, facilities and amenities, with quantity, area and condition |
 | `equipment` | Appliances and furniture: brand, age, condition, included in sale, photo it was detected in |
 | `buildings` | Building condition (structure, facade, roof, common areas), shared facilities, common charges (and whether they include heating), planned works; shared by several properties |
-| `inspections` | Visual inspection findings: category, severity, confidence, image region, status; from the AI inspector or a person |
+| `inspections` | Visual inspection findings: category, severity, confidence, observed vs potential concern, limitation, recommendation, optional cost range with its basis, photo references, status; from the AI inspector or a person |
+| `ai_inspection_runs` | One AI analysis: model requested and models that answered, photos submitted/analysed/skipped, condition per area |
 | `valuations` | Estimated value (low/mid/high), price per m², confidence, verdict, factors |
 | `comparables` | Similar property records: sales, listings and rentals with location, size and price |
 | `valuation_comparables` | Which comparables each valuation used, with distance, similarity and weight |
@@ -76,6 +78,8 @@ erDiagram
     properties ||--o{ documents : has
     properties ||--o{ inspections : has
     property_images ||--o{ inspections : "shows"
+    properties ||--o{ ai_inspection_runs : "analysed by"
+    ai_inspection_runs ||--o{ inspections : produces
     inspections ||--o{ renovations : "leads to"
     properties ||--o{ renovations : needs
     properties ||--o{ expenses : costs
