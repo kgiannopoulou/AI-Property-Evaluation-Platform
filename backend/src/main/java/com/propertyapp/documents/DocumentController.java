@@ -1,5 +1,7 @@
 package com.propertyapp.documents;
 
+import com.propertyapp.subscriptions.Access.RequiresFeature;
+import com.propertyapp.subscriptions.PlanCatalog.Feature;
 import jakarta.validation.Valid;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -17,6 +19,7 @@ class DocumentController {
 		this.clock = clock;
 	}
 
+	@RequiresFeature(Feature.DOCUMENTS)
 	@PostMapping("/api/v1/documents/check")
 	DocumentChecker.Result handle(@Valid @RequestBody DocumentChecker.Request request) {
 		return DocumentChecker.check(request, LocalDate.now(clock));

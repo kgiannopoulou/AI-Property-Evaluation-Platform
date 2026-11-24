@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Logo } from "./icons";
 import { Button, Field } from "./ui";
+import { register, login } from "@/lib/account";
+import { API_URL, ApiError } from "@/lib/api";
 import { signIn } from "@/lib/session";
 
 type Mode = "login" | "register";
@@ -15,7 +17,10 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const router = useRouter();
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  function onSubmit(e: FormEvent<HTMLFormElement>) {
+  const [busy, setBusy] = useState(false);
+  const minPassword = API_URL ? 10 : 8;
+
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const data = new FormData(e.currentTarget);
     const name = String(data.get("name") ?? "");
@@ -24,15 +29,28 @@ export function AuthForm({ mode }: { mode: Mode }) {
     const next: Record<string, string> = {};
     if (mode === "register" && name.trim().length < 2) next.name = "Enter your name.";
     if (!EMAIL_RE.test(email)) next.email = "Enter a valid email address.";
-    if (password.length < (mode === "register" ? 8 : 1))
-      next.password = mode === "register" ? "Use at least 8 characters." : "Enter your password.";
+    if (password.length < (mode === "register" ? minPassword : 1))
+      next.password = mode === "register" ? `Use at least ${minPassword} characters.` : "Enter your password.";
     if (mode === "register" && !data.get("terms")) next.terms = "Please accept the terms to continue.";
     setErrors(next);
     if (Object.keys(next).length) return;
 
-    // Prototype: no credential check. The Spring Boot users module will own authentication.
-    signIn(email, mode === "register" ? name : undefined);
-    router.push("/dashboard");
+    if (!API_URL) {
+      // Browser-only demo: no credential check.
+      signIn(email, mode === "register" ? name : undefined);
+      router.push("/dashboard");
+      return;
+    }
+    setBusy(true);
+    try {
+      if (mode === "register") await register(name, email, password);
+      else await login(email, password);
+      router.push("/dashboard");
+    } catch (err) {
+      setErrors({ form: err instanceof ApiError ? err.message : "Something went wrong. Please try again." });
+    } finally {
+      setBusy(false);
+    }
   }
 
   const isRegister = mode === "register";
@@ -70,7 +88,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
               label="Password"
               htmlFor="password"
               error={errors.password}
-              hint={isRegister ? "At least 8 characters." : undefined}
+              hint={isRegister ? `At least ${minPassword} characters.` : undefined}
             >
               <input
                 id="password"
@@ -90,8 +108,13 @@ export function AuthForm({ mode }: { mode: Mode }) {
                 {errors.terms && <p className="mt-1 text-xs text-negative">{errors.terms}</p>}
               </div>
             )}
-            <Button type="submit" size="lg" className="w-full">
-              {isRegister ? "Create account" : "Sign in"}
+            {errors.form && (
+              <p role="alert" className="rounded-lg border border-negative/20 bg-negative-soft px-3 py-2 text-sm text-negative">
+                {errors.form}
+              </p>
+            )}
+            <Button type="submit" size="lg" className="w-full" disabled={busy}>
+              {busy ? "Please wait…" : isRegister ? "Create account" : "Sign in"}
             </Button>
           </form>
 
@@ -102,7 +125,9 @@ export function AuthForm({ mode }: { mode: Mode }) {
             </Link>
           </p>
           <p className="mt-8 rounded-lg bg-canvas px-3 py-2.5 text-xs text-muted">
-            Prototype: accounts are stored only in this browser and passwords are not checked or saved.
+            {API_URL
+              ? "Your account is stored by the platform; passwords are kept only as a secure hash."
+              : "Browser-only demo: accounts are stored in this browser and passwords are not checked or saved."}
           </p>
         </div>
       </div>

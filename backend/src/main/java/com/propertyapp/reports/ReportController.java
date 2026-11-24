@@ -1,5 +1,9 @@
 package com.propertyapp.reports;
 
+import com.propertyapp.subscriptions.Access.Caller;
+import com.propertyapp.subscriptions.Access.Metered;
+import com.propertyapp.subscriptions.Access.RequiresFeature;
+import com.propertyapp.subscriptions.PlanCatalog.Feature;
 import com.propertyapp.location.LocationIntelligence;
 import com.propertyapp.negotiation.NegotiationAssistant;
 import jakarta.validation.Valid;
@@ -24,8 +28,11 @@ class ReportController {
 		this.reports = reports;
 	}
 
+	@RequiresFeature(Feature.REPORTS)
+	@Metered
 	@PostMapping(value = "/api/v1/reports/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
-	ResponseEntity<byte[]> pdf(@Valid @RequestBody ReportService.Request request) {
+	ResponseEntity<byte[]> pdf(Caller caller, @Valid @RequestBody ReportService.Request request) {
+		checkSections(caller, request);
 		byte[] pdf = reports.pdf(request);
 		return ResponseEntity.ok()
 				.contentType(MediaType.APPLICATION_PDF)
@@ -34,9 +41,18 @@ class ReportController {
 	}
 
 	/** The same contents as JSON, for the website to show before downloading. */
+	@RequiresFeature(Feature.REPORTS)
+	@Metered
 	@PostMapping("/api/v1/reports")
-	ReportService.Contents contents(@Valid @RequestBody ReportService.Request request) {
+	ReportService.Contents contents(Caller caller, @Valid @RequestBody ReportService.Request request) {
+		checkSections(caller, request);
 		return reports.assemble(request);
+	}
+
+	/** Sections from higher plans: investment tools and client-branded reports (Professional). */
+	static void checkSections(Caller caller, ReportService.Request request) {
+		if (request.investment() != null) caller.require(Feature.INVESTMENT);
+		if (request.client() != null) caller.require(Feature.CLIENT_REPORTS);
 	}
 
 	@Configuration

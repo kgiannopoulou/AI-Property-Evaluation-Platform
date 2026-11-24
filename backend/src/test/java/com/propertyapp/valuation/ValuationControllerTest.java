@@ -4,6 +4,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -11,6 +12,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.context.WebApplicationContext;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -18,7 +20,14 @@ import org.springframework.test.web.servlet.MockMvc;
 class ValuationControllerTest {
 
 	@Autowired
+	WebApplicationContext context;
+
 	MockMvc mvc;
+
+	@BeforeEach
+	void signIn() {
+		mvc = com.propertyapp.TestAccounts.mvc(context, "premium");
+	}
 
 	static final String SUBJECT = """
 			{"listingType":"sale","propertyType":"apartment","sizeSqm":70,"bedrooms":2,"bathrooms":1,"floor":2,

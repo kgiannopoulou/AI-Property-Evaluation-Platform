@@ -25,7 +25,7 @@ export function DownloadReportButton({ property, ruleFindings }: { property: Pro
     setError(null);
     try {
       const request = buildReportRequest(property, { aiFindings: ai?.findings, ruleFindings, repairQuotes: quotes }, prefs);
-      const res = await postRaw("/api/v1/reports/pdf", request, "The report");
+      const res = await postRaw("/api/v1/reports/pdf", request, "The report", property.id);
       const url = URL.createObjectURL(await res.blob());
       const a = document.createElement("a");
       a.href = url;

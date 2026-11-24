@@ -37,7 +37,7 @@ class ReportServiceTest {
 						new FinancialCalculator.Mortgage(null, 0.8, 4, 25), null),
 				new InvestmentCalculator.Request(220_000, 18_000, 0, 950, null, 50, 300, 150, null, null, null, 0, 0, 0, null, null, null, null),
 				new RenovationPlanner.Request(70, 1, 1978, "fair", null, null, null),
-				null, null, true);
+				null, null, true, new ReportService.Client("Maria K.", "A. Agent", "Demo Realty", "R-12"));
 	}
 
 	static String text(byte[] pdf) throws IOException {
@@ -55,7 +55,7 @@ class ReportServiceTest {
 		String text = text(pdf);
 		assertThat(text).contains("Διαμέρισμα 70 τ.μ., Παγκράτι", "Estimated fair market value", "Suggested negotiation strategy",
 				"Evidence behind the maximum offer", "Purchase and ownership costs", "Investment", "Renovation scenarios",
-				"Method and limitations");
+				"Method and limitations", "Prepared for Maria K. by A. Agent, Demo Realty · Ref. R-12");
 		assertThat(text).doesNotContain("Not enough reliable data");
 	}
 

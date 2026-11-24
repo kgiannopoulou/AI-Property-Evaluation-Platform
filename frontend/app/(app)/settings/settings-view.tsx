@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button, ButtonLink, Card, CardHeader, Field, PageHeader } from "@/components/ui";
 import { formatDate } from "@/lib/format";
@@ -11,12 +11,14 @@ import {
   PLAN_LIMITS,
   preferencesStore,
   sessionStore,
-  signOut,
   usePreferences,
   useSession,
   type Preferences,
   type Session,
 } from "@/lib/session";
+import { logout } from "@/lib/account";
+import { API_URL } from "@/lib/api";
+import { PlanUsageCard } from "./plan-usage";
 import { resetDemoData } from "@/properties/store";
 
 const ROLES: [Session["role"], string][] = [
@@ -30,6 +32,7 @@ export function SettingsView() {
   const hydrated = useHydrated();
   const session = useSession();
   const prefs = usePreferences();
+  const justUpgraded = useSearchParams().get("billing") === "success";
   if (!hydrated) return <div className="h-96 animate-pulse rounded-xl bg-line/60" aria-busy="true" />;
 
   return (
@@ -49,6 +52,7 @@ export function SettingsView() {
             <ButtonLink href="/register">Create account</ButtonLink>
           </Card>
         )}
+        {session?.token && API_URL && <PlanUsageCard justUpgraded={justUpgraded} />}
         <AssumptionsCard prefs={prefs} />
         <NotificationsCard prefs={prefs} />
         <DataCard signedIn={!!session} />
@@ -282,7 +286,7 @@ function DataCard({ signedIn }: { signedIn: boolean }) {
           <Button
             variant="secondary"
             onClick={() => {
-              signOut();
+              void logout();
               router.push("/");
             }}
           >

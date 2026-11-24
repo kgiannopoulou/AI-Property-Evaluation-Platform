@@ -1,5 +1,6 @@
 "use client";
 
+import { authHeaders, toApiError } from "@/lib/api";
 import { createLocalStore, useLocalStore } from "@/lib/local-store";
 import type { Property } from "@/properties/types";
 
@@ -94,14 +95,11 @@ export async function runAiInspection(property: Property): Promise<AiInspectionR
 
   let res: Response;
   try {
-    res = await fetch(`${API_URL}/api/v1/inspections`, { method: "POST", body: form });
+    res = await fetch(`${API_URL}/api/v1/inspections`, { method: "POST", body: form, headers: authHeaders(property.id) });
   } catch {
     throw new AiInspectionError("Could not reach the backend. Is it running?");
   }
-  if (!res.ok) {
-    const problem = (await res.json().catch(() => null)) as { detail?: string } | null;
-    throw new AiInspectionError(problem?.detail ?? `The inspection failed (${res.status}).`);
-  }
+  if (!res.ok) throw new AiInspectionError((await toApiError(res, "The inspection")).message);
   const report = (await res.json()) as AiInspectionReport;
   // Map photo references back to the ids used in this browser.
   const mapped: AiInspectionReport = {

@@ -1,5 +1,8 @@
 package com.propertyapp.floorplan;
 
+import com.propertyapp.subscriptions.Access.Metered;
+import com.propertyapp.subscriptions.Access.RequiresFeature;
+import com.propertyapp.subscriptions.PlanCatalog.Feature;
 import com.propertyapp.inspection.AiInspectionClient.AiServiceException;
 import com.propertyapp.inspection.InspectionProperties;
 import com.propertyapp.inspection.PhotoStorage;
@@ -46,6 +49,8 @@ class FloorPlanController {
 		this.reader = reader;
 	}
 
+	@RequiresFeature(Feature.FLOOR_PLANS)
+	@Metered
 	@PostMapping(value = "/api/v1/floor-plans", consumes = "multipart/form-data")
 	FloorPlanReader.Result read(
 			@RequestParam String propertyId,

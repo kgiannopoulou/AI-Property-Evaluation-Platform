@@ -1,5 +1,7 @@
 package com.propertyapp.location;
 
+import com.propertyapp.subscriptions.Access.RequiresFeature;
+import com.propertyapp.subscriptions.PlanCatalog.Feature;
 import com.propertyapp.common.Database;
 import jakarta.validation.Valid;
 import org.springframework.context.annotation.Bean;
@@ -18,6 +20,7 @@ class LocationController {
 		this.location = location;
 	}
 
+	@RequiresFeature(Feature.LOCATION)
 	@PostMapping("/api/v1/location")
 	LocationIntelligence.Result handle(@Valid @RequestBody LocationIntelligence.Request request) {
 		return location.analyse(request);

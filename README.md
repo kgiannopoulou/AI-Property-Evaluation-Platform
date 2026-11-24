@@ -3,7 +3,10 @@
 An independent second opinion on a property **before you make an offer**: valuation range, asking-price verdict,
 visible defects, ownership and renovation costs, investment returns and a negotiation range you can defend, all in one report.
 
-> **Status: Phase 8 of the roadmap (intelligence modules).** Location Intelligence, Financial Calculator, Renovation
+> **Status: Phase 9 of the roadmap (accounts, subscriptions and payments).** Freemium plans (Free, Premium €9.99,
+> Professional €29.99, Business custom: pricing hypotheses to test) with real accounts, Stripe payments and usage
+> limits **enforced by the backend** on every API call (see [Accounts, plans and payments](#accounts-plans-and-payments)).
+> Phase 8: Location Intelligence, Financial Calculator, Renovation
 > Planner, Market Comparator, Investment Calculator, Negotiation Assistant, Building Analysis, Document Checker, Floor
 > Plan Reader, Property Comparison and PDF Reports run as separate Java features in the backend, with AI used only for
 > reading photographs and floor plans (see [Intelligence modules](#intelligence-modules)).
@@ -25,7 +28,7 @@ visible defects, ownership and renovation costs, investment returns and a negoti
 | Part | Technology | Responsibility |
 | --- | --- | --- |
 | [`frontend/`](frontend) | TypeScript · React 19 · Next.js 16 · Tailwind CSS 4 | Website, dashboard, property forms, photo uploads, charts and reports |
-| [`backend/`](backend) | Java 21 · Spring Boot 4 · OpenPDF | Valuation engine and the intelligence modules (location, costs, renovation, market, investment, negotiation, building, documents, floor plans, comparison, PDF reports); later accounts and subscriptions |
+| [`backend/`](backend) | Java 21 · Spring Boot 4 · OpenPDF | Accounts, plans and usage limits, Stripe billing; valuation engine and the intelligence modules (location, costs, renovation, market, investment, negotiation, building, documents, floor plans, comparison, PDF reports) |
 | [`ai-service/`](ai-service) | Node.js · TypeScript · Anthropic SDK | Claude vision model: photo inspection (defects, missing appliances and furniture, condition) and floor plan reading (rooms and printed measurements); structured, validated output |
 | [`database/`](database) | PostgreSQL · PostGIS | 17 core tables (users, properties, images, features, equipment, buildings, inspections, valuations, comparables, location data, expenses, renovations, investments, documents, saved properties, subscriptions, reports) and PostGIS search for nearby facilities and comparables |
 
@@ -55,11 +58,11 @@ intelligence, Stripe or a local provider for subscriptions, and Vercel plus a Ja
 │   └── lib/                 formatting, session, local storage, module list
 ├── backend/src/main/java/com/propertyapp/
 │   └── valuation · location · financial · renovation · market · investment · negotiation · building · documents
-│       · floorplan · comparison · reports · inspection · common  (users · properties · subscriptions: later)
+│       · floorplan · comparison · reports · inspection · users · subscriptions · common  (properties: later)
 ├── ai-service/src/
 │   └── image-analysis · defect-detection · equipment-detection · vision · report-generation · floor-plan · storage
 ├── database/
-│   ├── migrations/          V1 initial schema · V2 evaluation tables · V3 PostGIS search · V4 submission · V5 AI inspections · V6 valuation engine · V7 modules
+│   ├── migrations/          V1 initial schema · V2 evaluation tables · V3 PostGIS search · V4 submission · V5 AI inspections · V6 valuation engine · V7 modules · V8 accounts and billing
 │   ├── tests/               schema and geo-search assertions (rolled back)
 │   └── seeds/               demo data for local development
 ├── compose.yaml             local PostGIS database
@@ -71,13 +74,13 @@ intelligence, Stripe or a local provider for subscriptions, and Vercel plus a Ja
 | Page | Route | What works |
 | --- | --- | --- |
 | Home | `/` | Product overview, how it works, module list |
-| Registration and login | `/register`, `/login` | Form validation; prototype session stored in the browser (no real auth yet) |
+| Registration and login | `/register`, `/login` | Real accounts when the backend is connected (BCrypt passwords, bearer session); otherwise a browser-only demo session |
 | Dashboard | `/dashboard` | Recent analyses, portfolio stats, plan usage, module status |
 | Add a property | `/properties/new` | Seven-step submission: purchase or rental, address and map location (paste coordinates or use the device location), asking price or monthly rent, size and layout, floor, building age, construction type and condition, energy certificate and rating, heating and cooling, parking/elevator/storage/balcony, appliance checklist (refrigerator, washing machine, dishwasher, oven and stove, air conditioning, heating, furniture), other furniture and appliances, common charges and planned building works, included facilities, photos per area (kitchen, bathroom, bedrooms, living room, exterior, building entrance, other). Validation rules are unit-tested |
 | Analysis results | `/properties/[id]` | Valuation range and verdict (sale price, or market rent for rentals), scores, value factors, market comparator, inspection findings (including damaged or missing appliances, heating, cooling, certificate and building works), submitted checklist and facilities, photos grouped by area, purchase and investment calculator or tenant move-in costs and rent-vs-buy, renovation scenarios, negotiation assistant, printable report. **AI Home Inspector**: runs the vision model on the photos (when the backend is connected) and lists each finding with photo thumbnails, severity, confidence, observed vs potential concern, recommendation and a cost range only where cost data exists |
 | Saved properties | `/properties` | Search, sort, delete, select up to four to compare |
 | Property comparison | `/compare` | Side-by-side table with the best value in each row highlighted |
-| Pricing | `/pricing` | Free, Premium, Professional and Business plans, monthly/annual toggle |
+| Pricing | `/pricing` | Free, Premium (€9.99), Professional (€29.99) and Business (custom) plans; Stripe Checkout (or demo billing) and a Business enquiry form |
 | Profile and settings | `/settings` | Profile, mortgage assumptions used by the calculator, notifications, reset demo data |
 
 Data lives in `localStorage` for now. The store hooks have the same shape the API client will have, so moving to
@@ -100,6 +103,8 @@ cd ai-service && npm install && npm run dev
 
 # To use the AI Home Inspector from the website: copy .env.example to .env and fill in ANTHROPIC_API_KEY and
 # AI_SERVICE_TOKEN, then put NEXT_PUBLIC_API_URL=http://localhost:8080 in frontend/.env.local
+# With the backend connected, sign up on the website: every backend feature needs an account and follows its plan.
+# Without Stripe keys, set BILLING_DEMO_MODE=true in .env to switch plans locally.
 
 # Database (PostGIS on port 5437, schema applied on first start)
 docker compose up -d db
@@ -127,8 +132,58 @@ docker compose exec -T db psql -U property -d property_intelligence -v ON_ERROR_
 | 6 | AI image analysis: photos stored by the backend, Claude vision model in the ai-service, structured findings (photo reference, severity, confidence, recommendation, cost where data exists), hidden risks only as potential concerns; schema V5 | Done |
 | 7 | Valuation engine: comparable records, published adjustments, weighted median price per m², fair-value range, condition and location scores, concerns, evidence-backed negotiation, data-quality gate that refuses to value on thin evidence; schema V6 | Done |
 | 8 | Intelligence modules as separate Java features: Location Intelligence (with environmental risk layers), Financial Calculator, Renovation Planner, Market Comparator, Investment Calculator, Negotiation Assistant, Building Analysis, Document Checker, Floor Plan Reader (AI), Property Comparison, PDF Reports; schema V7 | **Done** |
-| — | Website pages for document upload, floor plan upload and the backend modules; accounts and properties move from browser storage to Spring Boot | Next |
-| — | Subscriptions and payments, deployment | Planned |
+| 9 | Accounts, subscriptions and payments: freemium plans, backend-enforced features and monthly analyses, Stripe Checkout, Customer Portal and webhooks, teams, API keys, bulk analysis; schema V8 | **Done** |
+| — | Website pages for document upload, floor plan upload and the backend modules; saved properties move from browser storage to Spring Boot | Next |
+| — | Deployment (Vercel + Java/Node host + managed PostgreSQL), live Stripe products | Planned |
+
+## Accounts, plans and payments
+
+Initial pricing hypotheses to test, not final prices. The plan catalog lives in
+[`PlanCatalog.java`](backend/src/main/java/com/propertyapp/subscriptions/PlanCatalog.java); the database `plans`
+rows and the website's pricing page mirror it, and tests keep the three in step.
+
+| Plan | Price | Analyses / month | Main features |
+| --- | --- | --- | --- |
+| Free | €0 | 2 | Valuation range, verdict and scores; basic AI inspection (up to 6 photos); cost calculator; compare 2 |
+| Premium | €9.99 / month | 20 | Advanced valuation (comparable evidence, negotiation), PDF reports, full AI inspection (24 photos), location, market, building, documents, floor plans; compare 4 |
+| Professional | €29.99 / month | 100 | Everything in Premium, investment tools, client-branded reports; compare 6 |
+| Business | Custom | By contract (default 1,000) | Teams sharing one allowance, bulk analysis (up to 50 per call), API access with API keys |
+
+**Enforced in the backend, not by hiding buttons.** An interceptor runs on every `/api/**` call:
+
+1. **Authentication**: a bearer session token (`Authorization: Bearer …`, from `/api/v1/auth/login`) or, on
+   Business, an API key (`X-API-Key`). Passwords are BCrypt hashes; tokens and keys are random 256-bit values of
+   which only a SHA-256 hash is stored. Repeated failed logins lock the email for 15 minutes. → `401`
+2. **Feature**: each endpoint declares the feature it needs (`@RequiresFeature`); plan-specific sizes are checked in
+   the controller (photos per inspection, properties per comparison, investment or client sections in a report).
+   → `403` with `code: upgrade-required` and the `requiredPlan`
+3. **Usage**: endpoints that analyse a property are `@Metered`. One analysis = one property per calendar month (UTC):
+   the website sends the property id in `X-Property-Ref`, so re-running a valuation, report or inspection of the same
+   property is free. The check and the insert happen in one transaction with the account row locked, so parallel
+   requests cannot exceed the limit; a request that fails gives its analysis back. → `429` with `code:
+   quota-exceeded`, `limit`, `used` and `resetsOn`; successful calls return `X-Analyses-Limit / -Used / -Remaining`
+4. **Free view of the valuation**: the range, verdict, scores and data quality, without the comparable evidence and
+   negotiation (Premium).
+
+Team members use the owner's plan and allowance while the owner is on Business; only the owner manages billing.
+
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /api/v1/auth/register`, `/auth/login`, `/auth/logout`, `GET /auth/me` | Accounts and sessions |
+| `GET /api/v1/plans` (public), `GET /api/v1/subscription` | Plans; the caller's plan, status and usage |
+| `POST /api/v1/billing/checkout` · `/billing/portal` · `/billing/cancel` | Stripe Checkout, Stripe Customer Portal (change plan, card, cancel); cancel is demo mode only |
+| `POST /api/v1/billing/webhook` (public) | Stripe events, verified with the `Stripe-Signature` HMAC and a 5-minute tolerance, processed once |
+| `POST /api/v1/billing/business-enquiry` | Business plan enquiry |
+| `GET/POST /api/v1/api-keys`, `DELETE /api/v1/api-keys/{id}` | Business API keys (shown once) |
+| `GET/POST /api/v1/team`, `POST /team/members`, `DELETE /team/members/{id}` | Business teams and seats |
+| `POST /api/v1/bulk/valuations` | Business bulk analysis, each distinct property counted |
+
+**Payments**: Stripe Checkout creates the subscription; `checkout.session.completed`, `customer.subscription.*`,
+`invoice.paid` and `invoice.payment_failed` webhooks set the plan, renewal date, cancellation and payment status
+(a failed payment keeps the plan as `past_due` while Stripe retries; deletion returns the account to Free). Card
+details never reach the backend. Set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and the two price ids in `.env`.
+Without Stripe, `BILLING_DEMO_MODE=true` switches plans instantly for local development; it is ignored when Stripe is
+configured. Without `DATABASE_URL` accounts are kept in memory (development only; a warning is logged).
 
 ## Intelligence modules
 

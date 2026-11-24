@@ -1,5 +1,7 @@
 package com.propertyapp.building;
 
+import com.propertyapp.subscriptions.Access.RequiresFeature;
+import com.propertyapp.subscriptions.PlanCatalog.Feature;
 import jakarta.validation.Valid;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -17,6 +19,7 @@ class BuildingController {
 		this.clock = clock;
 	}
 
+	@RequiresFeature(Feature.BUILDING)
 	@PostMapping("/api/v1/building")
 	BuildingAnalysis.Result handle(@Valid @RequestBody BuildingAnalysis.Request request) {
 		return BuildingAnalysis.analyse(request, LocalDate.now(clock));

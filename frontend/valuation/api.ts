@@ -23,7 +23,7 @@ export function setRepairQuotes(propertyId: string, quotes: RepairQuote[]): void
 }
 
 export async function runValuation(propertyId: string, request: ValuationRequest): Promise<ValuationReport> {
-  const report = await postJson<ValuationReport>("/api/v1/valuations", request, "The valuation");
+  const report = await postJson<ValuationReport>("/api/v1/valuations", request, "The valuation", propertyId);
   valuationsStore.set((prev) => ({ ...prev, [propertyId]: report }));
   return report;
 }

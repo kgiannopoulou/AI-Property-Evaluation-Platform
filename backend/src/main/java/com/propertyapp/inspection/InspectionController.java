@@ -1,5 +1,10 @@
 package com.propertyapp.inspection;
 
+import com.propertyapp.subscriptions.Access.Caller;
+import com.propertyapp.subscriptions.Access.Metered;
+import com.propertyapp.subscriptions.Access.RequiresFeature;
+import com.propertyapp.subscriptions.Access.UpgradeRequired;
+import com.propertyapp.subscriptions.PlanCatalog.Feature;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -54,8 +59,11 @@ public class InspectionController {
 		this.ai = ai;
 	}
 
+	@RequiresFeature(Feature.BASIC_INSPECTION)
+	@Metered
 	@PostMapping(consumes = "multipart/form-data")
 	public InspectionReport inspect(
+			Caller caller,
 			@RequestParam String propertyId,
 			@RequestParam("photos") List<MultipartFile> photos,
 			@RequestParam List<String> photoIds,
@@ -64,6 +72,11 @@ public class InspectionController {
 
 		if (!ID.matcher(propertyId).matches()) throw badRequest("propertyId is invalid");
 		if (photos.isEmpty() || photos.size() > MAX_PHOTOS) throw badRequest("Send between 1 and " + MAX_PHOTOS + " photos");
+		int planMax = caller.plan().maxInspectionPhotos();
+		if (photos.size() > planMax) {
+			throw new UpgradeRequired("The " + caller.plan().name() + " plan inspects up to " + planMax + " photos per analysis. "
+					+ "Upgrade to Premium for up to " + MAX_PHOTOS + ".", Feature.FULL_INSPECTION, caller.plan());
+		}
 		if (photoIds.size() != photos.size() || areas.size() != photos.size()) {
 			throw badRequest("photoIds and areas must have one entry per photo");
 		}

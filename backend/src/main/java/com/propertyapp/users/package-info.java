@@ -1,7 +1,4 @@
 /**
- * Accounts, authentication and roles (buyer, investor, agent, valuer).
- *
- * <p>Phase 2 placeholder: the package exists so the module boundaries are fixed early.
- * Implementation starts in Phase 4.
+ * Accounts: registration, BCrypt passwords, hashed bearer sessions, API keys (Business) and teams (Business); JDBC or in-memory store.
  */
 package com.propertyapp.users;

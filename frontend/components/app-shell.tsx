@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Suspense, useState, type ReactNode } from "react";
 import { cn } from "@/lib/format";
-import { DEMO_SESSION, PLAN_LIMITS, signOut, useSession } from "@/lib/session";
+import { DEMO_SESSION, PLAN_LIMITS, useSession } from "@/lib/session";
+import { logout } from "@/lib/account";
 import {
   IconCompare,
   IconDashboard,
@@ -75,7 +76,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           {session ? (
             <button
               onClick={() => {
-                signOut();
+                void logout();
                 router.push("/");
               }}
               className="text-white/50 hover:text-white"

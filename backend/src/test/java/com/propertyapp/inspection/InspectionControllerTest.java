@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
@@ -25,6 +26,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.context.WebApplicationContext;
 import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder;
 
 @SpringBootTest
@@ -43,7 +45,14 @@ class InspectionControllerTest {
 	static final byte[] PNG = {(byte) 0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a, 1, 2};
 
 	@Autowired
+	WebApplicationContext context;
+
 	MockMvc mvc;
+
+	@BeforeEach
+	void signIn() {
+		mvc = com.propertyapp.TestAccounts.mvc(context, "premium");
+	}
 
 	@MockitoBean
 	AiInspectionClient ai;

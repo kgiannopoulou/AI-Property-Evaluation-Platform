@@ -1,19 +1,24 @@
 "use client";
 
 import { createLocalStore, useLocalStore } from "./local-store";
+import { planInfo, type PlanId } from "./plans";
+
+export type { PlanId } from "./plans";
 
 /**
- * Prototype-only session. There is no password check and nothing leaves the
- * browser; real authentication arrives with the Spring Boot `users` module.
+ * The signed-in user. With a backend (NEXT_PUBLIC_API_URL) the session holds the backend's bearer
+ * token and the plan comes from the backend, which enforces it. Without a backend the website runs as
+ * a browser-only demo: no password check, nothing leaves the browser.
  */
-export type PlanId = "free" | "premium" | "professional" | "business";
-
 export type Session = {
   name: string;
   email: string;
   role: "buyer" | "investor" | "agent" | "valuer";
   plan: PlanId;
   joinedAt: string;
+  /** Backend session token (absent in the browser-only demo). */
+  token?: string;
+  tokenExpiresAt?: string;
 };
 
 export type Preferences = {
@@ -53,6 +58,7 @@ export function usePreferences(): Preferences {
   return useLocalStore(preferencesStore, DEFAULT_PREFERENCES);
 }
 
+/** Browser-only demo sign-in (no backend). */
 export function signIn(email: string, name?: string): Session {
   const existing = sessionStore.get();
   const session: Session = {
@@ -70,9 +76,17 @@ export function signOut(): void {
   sessionStore.set(null);
 }
 
+/** Bearer token for backend calls, if the user signed in against the backend. */
+export function currentToken(): string | null {
+  const s = sessionStore.get();
+  if (!s?.token) return null;
+  if (s.tokenExpiresAt && new Date(s.tokenExpiresAt).getTime() < Date.now()) return null;
+  return s.token;
+}
+
 export const PLAN_LIMITS: Record<PlanId, { label: string; analysesPerMonth: number | null }> = {
-  free: { label: "Free", analysesPerMonth: 3 },
-  premium: { label: "Premium", analysesPerMonth: 25 },
-  professional: { label: "Professional", analysesPerMonth: 150 },
-  business: { label: "Business", analysesPerMonth: null },
+  free: { label: planInfo("free").name, analysesPerMonth: planInfo("free").analysesPerMonth },
+  premium: { label: planInfo("premium").name, analysesPerMonth: planInfo("premium").analysesPerMonth },
+  professional: { label: planInfo("professional").name, analysesPerMonth: planInfo("professional").analysesPerMonth },
+  business: { label: planInfo("business").name, analysesPerMonth: planInfo("business").analysesPerMonth },
 };

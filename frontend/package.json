@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test \"properties/*.test.ts\" \"analysis/*.test.ts\" \"valuation/*.test.ts\" \"reports/*.test.ts\""
+    "test": "node --test \"properties/*.test.ts\" \"analysis/*.test.ts\" \"valuation/*.test.ts\" \"reports/*.test.ts\" \"lib/*.test.ts\""
   },
   "dependencies": {
     "next": "16.4.6",

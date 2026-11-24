@@ -31,6 +31,14 @@ app:
     password: ${POSTGRES_PASSWORD:}
   cors:
     allowed-origins: ${FRONTEND_ORIGIN:http://localhost:3000}
+  billing:
+    # Local development without Stripe: plans switch instantly (never active when Stripe is configured).
+    demo-mode: ${BILLING_DEMO_MODE:false}
+    stripe:
+      secret-key: ${STRIPE_SECRET_KEY:}
+      webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+      price-premium: ${STRIPE_PRICE_PREMIUM:}
+      price-professional: ${STRIPE_PRICE_PROFESSIONAL:}
   inspection:
     ai-service-url: ${AI_SERVICE_URL:http://localhost:8090}
     ai-service-token: ${AI_SERVICE_TOKEN:}

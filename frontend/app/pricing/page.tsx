@@ -32,11 +32,19 @@ function Faq() {
     ],
     [
       "Can I cancel at any time?",
-      "Yes. Paid plans are monthly or annual and can be cancelled from your settings; you keep access until the end of the period.",
+      "Yes. Paid plans are monthly and are cancelled in the billing portal from your settings; you keep access until the end of the period.",
     ],
     [
-      "Is payment live in this version?",
-      "Not yet. Subscriptions will be processed by Stripe (or a local provider) through the backend. Payment keys never reach the browser.",
+      "What counts as an analysis?",
+      "Analysing one property in a calendar month: its valuation, AI inspection, negotiation, floor plan or report. Running them again for the same property that month is free.",
+    ],
+    [
+      "What happens when I reach my limit?",
+      "The platform tells you how many analyses you have used and when the allowance resets on the 1st of the month. Your saved properties and earlier results stay available.",
+    ],
+    [
+      "How are payments handled?",
+      "Subscriptions are processed by Stripe. Card details go straight to Stripe and never reach our servers.",
     ],
   ];
   return (

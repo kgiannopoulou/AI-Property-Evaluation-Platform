@@ -1,5 +1,7 @@
 package com.propertyapp.market;
 
+import com.propertyapp.subscriptions.Access.RequiresFeature;
+import com.propertyapp.subscriptions.PlanCatalog.Feature;
 import com.propertyapp.valuation.MarketDataSource;
 import jakarta.validation.Valid;
 import java.time.Clock;
@@ -22,6 +24,7 @@ class MarketController {
 		this.clock = clock;
 	}
 
+	@RequiresFeature(Feature.MARKET)
 	@PostMapping("/api/v1/market")
 	MarketComparator.Result handle(@Valid @RequestBody MarketComparator.Request request) {
 		return comparator.compare(request, LocalDate.now(clock));

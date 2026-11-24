@@ -440,6 +440,44 @@ INSERT INTO subscriptions (user_id, plan_id, status, payment_status) VALUES ('00
 SELECT pg_temp.expect_error($$
     INSERT INTO subscriptions (user_id, plan_id, status) VALUES ('00000000-0000-0000-0000-000000000001', 'business', 'trialing') $$, '23505'); -- one live plan
 
+-- V8: plans match the backend's PlanCatalog; usage counted once per property per month ---------
+DO $$
+BEGIN
+    ASSERT (SELECT array_agg(id || ':' || coalesce(monthly_price_cents::text, 'custom') || ':' || coalesce(analyses_per_month::text, 'contract')
+                             ORDER BY coalesce(monthly_price_cents, 1000000))
+            FROM plans) = ARRAY['free:0:2', 'premium:999:20', 'professional:2999:100', 'business:custom:contract'],
+        'plan prices and limits are the Phase 9 hypotheses (keep in step with PlanCatalog.java)';
+    ASSERT (SELECT 'api-access' = ANY (features) AND 'teams' = ANY (features) FROM plans WHERE id = 'business'), 'business features';
+    ASSERT NOT (SELECT 'investment' = ANY (features) FROM plans WHERE id = 'premium'), 'investment tools start at Professional';
+    ASSERT (SELECT max_inspection_photos FROM plans WHERE id = 'free') = 6, 'free inspects 6 photos';
+
+    INSERT INTO usage_events (account_user_id, period, property_ref, endpoint)
+    VALUES ('00000000-0000-0000-0000-000000000001', '2026-11-01', 'p:a1', '/api/v1/valuations');
+    BEGIN
+        INSERT INTO usage_events (account_user_id, period, property_ref, endpoint)
+        VALUES ('00000000-0000-0000-0000-000000000001', '2026-11-01', 'p:a1', '/api/v1/reports/pdf');
+        RAISE EXCEPTION 'same property counted twice in a month';
+    EXCEPTION WHEN unique_violation THEN NULL;
+    END;
+    INSERT INTO usage_events (account_user_id, period, property_ref, endpoint)
+    VALUES ('00000000-0000-0000-0000-000000000001', '2026-12-01', 'p:a1', '/api/v1/valuations');   -- next month counts again
+    BEGIN
+        INSERT INTO usage_events (account_user_id, period, property_ref, endpoint)
+        VALUES ('00000000-0000-0000-0000-000000000001', '2026-11-15', 'p:b', '/api/v1/valuations');
+        RAISE EXCEPTION 'period must be the first day of a month';
+    EXCEPTION WHEN check_violation THEN NULL;
+    END;
+    BEGIN
+        INSERT INTO plans (id, name) VALUES ('free', 'x');
+        RAISE EXCEPTION 'duplicate plan accepted';
+    EXCEPTION WHEN unique_violation OR not_null_violation OR check_violation THEN NULL;
+    END;
+    INSERT INTO user_sessions (token_hash, user_id, expires_at)
+    VALUES (repeat('a', 64), '00000000-0000-0000-0000-000000000001', now() + interval '1 day');
+    INSERT INTO api_keys (owner_user_id, name, prefix, key_hash)
+    VALUES ('00000000-0000-0000-0000-000000000001', 'test', 'pe_live_abc', repeat('b', 64));
+END $$;
+
 DO $$
 BEGIN
     -- updated_at trigger overrides whatever the client sends.
@@ -453,6 +491,9 @@ BEGIN
     ASSERT NOT EXISTS (SELECT 1 FROM valuations WHERE property_id = '00000000-0000-0000-0000-0000000000a1'), 'valuations cascaded';
     ASSERT NOT EXISTS (SELECT 1 FROM expenses WHERE property_id = '00000000-0000-0000-0000-0000000000a1'), 'expenses cascaded';
     ASSERT NOT EXISTS (SELECT 1 FROM saved_properties WHERE user_id = '00000000-0000-0000-0000-000000000001'), 'saved cascaded';
+    ASSERT NOT EXISTS (SELECT 1 FROM usage_events WHERE account_user_id = '00000000-0000-0000-0000-000000000001'), 'usage cascaded';
+    ASSERT NOT EXISTS (SELECT 1 FROM user_sessions WHERE user_id = '00000000-0000-0000-0000-000000000001'), 'sessions cascaded';
+    ASSERT NOT EXISTS (SELECT 1 FROM api_keys WHERE owner_user_id = '00000000-0000-0000-0000-000000000001'), 'API keys cascaded';
     ASSERT EXISTS (SELECT 1 FROM buildings WHERE id = '00000000-0000-0000-0000-0000000000b1'), 'shared building is kept';
     ASSERT EXISTS (SELECT 1 FROM comparables WHERE id = '00000000-0000-0000-0000-0000000000c1'), 'market records are kept';
 END $$;

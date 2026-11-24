@@ -1,5 +1,8 @@
 package com.propertyapp.negotiation;
 
+import com.propertyapp.subscriptions.Access.Metered;
+import com.propertyapp.subscriptions.Access.RequiresFeature;
+import com.propertyapp.subscriptions.PlanCatalog.Feature;
 import com.propertyapp.valuation.ValuationEngine;
 import jakarta.validation.Valid;
 import java.time.Clock;
@@ -19,6 +22,8 @@ class NegotiationController {
 		this.assistant = assistant;
 	}
 
+	@RequiresFeature(Feature.NEGOTIATION)
+	@Metered
 	@PostMapping("/api/v1/negotiation")
 	NegotiationAssistant.Result handle(@Valid @RequestBody NegotiationAssistant.Request request) {
 		return assistant.advise(request);

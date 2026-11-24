@@ -15,12 +15,12 @@ public class StatusController {
 	/** Modules with a working API. */
 	static final List<String> MODULES = List.of(
 			"inspection", "valuation", "location", "financial", "renovation", "market", "investment", "negotiation",
-			"building", "documents", "floorplan", "comparison", "reports");
+			"building", "documents", "floorplan", "comparison", "reports", "users", "subscriptions");
 
 	public record Status(String service, String phase, List<String> modules) {}
 
 	@GetMapping("/status")
 	public Status status() {
-		return new Status("property-backend", "phase-8", MODULES);
+		return new Status("property-backend", "phase-9", MODULES);
 	}
 }

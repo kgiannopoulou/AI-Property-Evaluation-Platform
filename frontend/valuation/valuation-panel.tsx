@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { InspectionFinding } from "@/analysis/types";
 import { IconSpark, IconTrash } from "@/components/icons";
-import { Badge, Button, Card, CardHeader, Stat } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, CardHeader, Stat } from "@/components/ui";
 import { useAiInspections } from "@/inspection/api";
 import { API_URL, ApiError } from "@/lib/api";
 import { cn, formatDate, formatEur } from "@/lib/format";
@@ -31,7 +31,7 @@ export function ValuationPanel({ property, ruleFindings }: { property: Property;
   const quotes = useRepairQuotes()[property.id] ?? [];
   const ai = useAiInspections()[property.id];
   const [running, setRunning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiError | null>(null);
   const rent = property.listingType === "rent";
   const money = (n: number) => `${formatEur(n)}${rent ? "/month" : ""}`;
 
@@ -44,7 +44,7 @@ export function ValuationPanel({ property, ruleFindings }: { property: Property;
         buildValuationRequest(property, { aiFindings: ai?.findings, ruleFindings, repairQuotes: quotes }),
       );
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "The valuation failed. Please try again.");
+      setError(e instanceof ApiError ? e : new ApiError("The valuation failed. Please try again."));
     } finally {
       setRunning(false);
     }
@@ -72,8 +72,21 @@ export function ValuationPanel({ property, ruleFindings }: { property: Property;
           </p>
         )}
         {error && (
-          <p role="alert" className="rounded-lg border border-negative/20 bg-negative-soft px-3 py-2 text-sm text-negative">
-            {error}
+          <p
+            role="alert"
+            className="rounded-lg border border-negative/20 bg-negative-soft px-3 py-2 text-sm text-negative"
+          >
+            {error.message}{" "}
+            {(error.code === "quota-exceeded" || error.code === "upgrade-required") && (
+              <a href="/pricing" className="font-medium underline">
+                See plans
+              </a>
+            )}
+            {error.code === "unauthenticated" && (
+              <a href="/login" className="font-medium underline">
+                Sign in
+              </a>
+            )}
           </p>
         )}
 
@@ -104,7 +117,7 @@ export function ValuationPanel({ property, ruleFindings }: { property: Property;
 
 function Valued({ r, money }: { r: ValuationReport; money: (n: number) => string }) {
   const e = r.estimate!;
-  const n = r.negotiation!;
+  const n = r.negotiation;
   const q = r.dataQuality;
   return (
     <>
@@ -130,29 +143,46 @@ function Valued({ r, money }: { r: ValuationReport; money: (n: number) => string
 
       <Concerns r={r} />
 
-      <div className="rounded-lg bg-canvas p-4">
-        <p className="text-sm font-semibold">Suggested negotiation strategy</p>
-        <p className="mt-1 text-sm">{n.strategy}</p>
-        <dl className="mt-3 grid grid-cols-3 gap-3 text-sm">
-          {[
-            ["Opening offer", n.openingOffer],
-            ["Target", n.targetPrice],
-            ["Maximum offer", n.maxOffer],
-          ].map(([label, v]) => (
-            <div key={label as string}>
-              <dt className="text-xs text-muted">{label}</dt>
-              <dd className="tabular font-semibold">{money(v as number)}</dd>
-            </div>
-          ))}
-        </dl>
-        <p className="mt-4 text-xs font-medium tracking-wide text-muted uppercase">Evidence behind the maximum offer</p>
-        <ul className="mt-1 list-disc space-y-1 pl-5 text-sm">
-          {n.evidence.map((x) => (
-            <li key={x}>{x}</li>
-          ))}
-        </ul>
-        {q.grade === "low" && <p className="mt-2 text-xs text-warning">Data quality is low: use these figures as indicative only.</p>}
-      </div>
+      {!n ? (
+        <div className="rounded-lg border border-brand-100 bg-brand-50 p-4">
+          <p className="text-sm font-semibold">Comparable evidence and negotiation strategy</p>
+          <p className="mt-1 text-sm text-muted">
+            The comparables behind this range, their adjustments, the suggested offers and the evidence for the maximum
+            offer are part of Premium.
+          </p>
+          <ButtonLink href="/pricing" size="sm" className="mt-3">
+            See plans
+          </ButtonLink>
+        </div>
+      ) : (
+        <div className="rounded-lg bg-canvas p-4">
+          <p className="text-sm font-semibold">Suggested negotiation strategy</p>
+          <p className="mt-1 text-sm">{n.strategy}</p>
+          <dl className="mt-3 grid grid-cols-3 gap-3 text-sm">
+            {[
+              ["Opening offer", n.openingOffer],
+              ["Target", n.targetPrice],
+              ["Maximum offer", n.maxOffer],
+            ].map(([label, v]) => (
+              <div key={label as string}>
+                <dt className="text-xs text-muted">{label}</dt>
+                <dd className="tabular font-semibold">{money(v as number)}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-4 text-xs font-medium tracking-wide text-muted uppercase">
+            Evidence behind the maximum offer
+          </p>
+          <ul className="mt-1 list-disc space-y-1 pl-5 text-sm">
+            {n.evidence.map((x) => (
+              <li key={x}>{x}</li>
+            ))}
+          </ul>
+          {q.grade === "low" && (
+            <p className="mt-2 text-xs text-warning">Data quality is low: use these figures as indicative only.</p>
+          )}
+        </div>
+      )}
     </>
   );
 }
@@ -194,7 +224,11 @@ function Insufficient({ r }: { r: ValuationReport }) {
 function ScoreStat({ label, s }: { label: string; s: Score }) {
   return (
     <div>
-      <Stat label={label} value={s.score === null ? "—" : `${s.score}/100`} hint={s.score === null ? s.basis : undefined} />
+      <Stat
+        label={label}
+        value={s.score === null ? "—" : `${s.score}/100`}
+        hint={s.score === null ? s.basis : undefined}
+      />
       {s.items.length > 0 && (
         <details className="mt-1 text-xs text-muted">
           <summary className="cursor-pointer">Breakdown</summary>
@@ -306,7 +340,9 @@ function Comparables({ rows, rent }: { rows: ComparableResult[]; rent: boolean }
                 <td className="tabular py-2 pr-3">{c.sizeSqm} m²</td>
                 <td className="tabular py-2 pr-3">{formatEur(c.price)}</td>
                 <td className="tabular py-2 pr-3">{perSqm(c.pricePerSqm)}</td>
-                <td className="tabular py-2 pr-3">{c.adjustedPricePerSqm !== null ? perSqm(c.adjustedPricePerSqm) : "—"}</td>
+                <td className="tabular py-2 pr-3">
+                  {c.adjustedPricePerSqm !== null ? perSqm(c.adjustedPricePerSqm) : "—"}
+                </td>
                 <td className="py-2 text-xs">
                   {c.excludedReason ?? <span className="tabular">{Math.round((c.weight ?? 0) * 100)}%</span>}
                 </td>
@@ -321,7 +357,10 @@ function Comparables({ rows, rent }: { rows: ComparableResult[]; rent: boolean }
 
 function RepairQuotes({ propertyId, quotes }: { propertyId: string; quotes: RepairQuote[] }) {
   const update = (id: string, patch: Partial<RepairQuote>) =>
-    setRepairQuotes(propertyId, quotes.map((q) => (q.id === id ? { ...q, ...patch } : q)));
+    setRepairQuotes(
+      propertyId,
+      quotes.map((q) => (q.id === id ? { ...q, ...patch } : q)),
+    );
   const add = () =>
     setRepairQuotes(propertyId, [
       ...quotes,
@@ -379,14 +418,23 @@ function RepairQuotes({ propertyId, quotes }: { propertyId: string; quotes: Repa
                 onChange={(e) => update(q.id, { source: e.target.value })}
               />
               <label className="flex items-center gap-1 text-sm">
-                <input type="checkbox" checked={q.verified} onChange={(e) => update(q.id, { verified: e.target.checked })} />
+                <input
+                  type="checkbox"
+                  checked={q.verified}
+                  onChange={(e) => update(q.id, { verified: e.target.checked })}
+                />
                 verified
               </label>
               <Button
                 variant="ghost"
                 size="sm"
                 aria-label="Remove estimate"
-                onClick={() => setRepairQuotes(propertyId, quotes.filter((x) => x.id !== q.id))}
+                onClick={() =>
+                  setRepairQuotes(
+                    propertyId,
+                    quotes.filter((x) => x.id !== q.id),
+                  )
+                }
               >
                 <IconTrash />
               </Button>

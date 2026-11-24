@@ -41,11 +41,19 @@ public class ReportService {
 			@Valid RenovationPlanner.Request renovation,
 			@Valid BuildingAnalysis.Request building,
 			@Valid DocumentChecker.Request documents,
-			boolean includeLocation) {}
+			boolean includeLocation,
+			/** Professional: a report prepared for a client. */
+			@Valid Client client) {}
+
+	public record Client(
+			@NotBlank @Size(max = 120) String clientName,
+			@Size(max = 120) String preparedBy,
+			@Size(max = 120) String company,
+			@Size(max = 60) String reference) {}
 
 	/** Everything the PDF shows. Sections the caller did not ask for are null. */
 	public record Contents(
-			String title, String address, LocalDate date, ValuationReport valuation, NegotiationAssistant.Result negotiation,
+			String title, String address, Client client, LocalDate date, ValuationReport valuation, NegotiationAssistant.Result negotiation,
 			FinancialCalculator.Result financial, InvestmentCalculator.Result investment, RenovationPlanner.Result renovation,
 			LocationIntelligence.Result location) {}
 
@@ -61,7 +69,7 @@ public class ReportService {
 		LocationIntelligence.Result loc = r.includeLocation() && s.location() != null
 				? location.analyse(new LocationIntelligence.Request(s.location().lat(), s.location().lon(), null))
 				: null;
-		return new Contents(r.title(), r.address(), LocalDate.now(clock), n.valuation(), n,
+		return new Contents(r.title(), r.address(), r.client(), LocalDate.now(clock), n.valuation(), n,
 				r.financial() == null ? null : FinancialCalculator.calculate(r.financial()),
 				r.investment() == null ? null : InvestmentCalculator.calculate(r.investment()),
 				renovation == null ? null : RenovationPlanner.plan(renovation), loc);

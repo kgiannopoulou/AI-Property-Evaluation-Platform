@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.propertyapp.floorplan.FloorPlanReader;
 import java.nio.file.Path;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +24,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.context.WebApplicationContext;
 
 /** Every Phase 8 module answers on its endpoint (no database, AI service mocked). */
 @SpringBootTest
@@ -39,7 +41,14 @@ class ModuleEndpointsTest {
 	}
 
 	@Autowired
+	WebApplicationContext context;
+
 	MockMvc mvc;
+
+	@BeforeEach
+	void signIn() {
+		mvc = com.propertyapp.TestAccounts.mvc(context, "business");
+	}
 
 	@MockitoBean
 	FloorPlanReader floorPlans;

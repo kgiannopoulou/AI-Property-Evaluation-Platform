@@ -53,6 +53,11 @@ final class PdfReportWriter {
 
 			doc.add(new Paragraph(c.title(), f.title()));
 			doc.add(new Paragraph((c.address() == null ? "" : c.address() + " · ") + "Report of " + c.date(), f.small()));
+			if (c.client() != null) {
+				var cl = c.client();
+				String by = cl.preparedBy() == null ? "" : " by " + cl.preparedBy() + (cl.company() == null ? "" : ", " + cl.company());
+				doc.add(new Paragraph("Prepared for " + cl.clientName() + by + (cl.reference() == null ? "" : " · Ref. " + cl.reference()), f.bold()));
+			}
 			doc.add(spacer());
 
 			summary(doc, f, c.valuation(), rent);
