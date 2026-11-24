@@ -21,6 +21,7 @@ import { cn, formatDate, formatEur, formatPct, formatPerSqm, formatRentPerSqm } 
 import { useHydrated } from "@/lib/local-store";
 import { deleteProperty, runAnalysis, useAnalyses, useProperties } from "@/properties/store";
 import { AiInspectionPanel } from "@/inspection/ai-inspection-panel";
+import { ValuationPanel } from "@/valuation/valuation-panel";
 import { photosByArea } from "@/properties/submission";
 import {
   APPLIANCES,
@@ -248,6 +249,7 @@ function Overview({ property, a }: { property: Property; a: AnalysisResult }) {
   ];
   return (
     <>
+      <ValuationPanel property={property} ruleFindings={a.inspection} />
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader

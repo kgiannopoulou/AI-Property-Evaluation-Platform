@@ -163,6 +163,51 @@ BEGIN
     ASSERT (SELECT price_per_sqm FROM comparables WHERE source_ref = 'c1') = 3195.12, 'generated price per sqm';
 END $$;
 
+-- 5b. V6: point and district comparable search, valuation outcome rules ------------------
+UPDATE comparables SET elevator = true, parking = false, bathrooms = 1, verified = true WHERE source_ref = 'c1';
+
+DO $$
+BEGIN
+    ASSERT (SELECT array_agg(listing_type ORDER BY distance_m) FROM search_comparables(
+                geo_point(23.7348, 37.9755), NULL, 'apartment', ARRAY['sold', 'sale-listing'], 80))
+         = ARRAY['sold', 'sale-listing'], 'point search: same type, sales only, nearest first';
+    ASSERT (SELECT elevator AND verified FROM search_comparables(
+                geo_point(23.7348, 37.9755), NULL, 'apartment', ARRAY['sold'], 80)), 'V6 attributes returned';
+    ASSERT (SELECT count(*) FROM search_comparables(
+                geo_point(23.7348, 37.9755), NULL, 'apartment', ARRAY['sold'], 80, p_radius_m => 50)) = 1,
+        'radius respected (c1 is about 28 m away, c2 about 600 m)';
+    ASSERT (SELECT count(*) FROM search_comparables(
+                NULL, 'No such district', 'apartment', ARRAY['sold'], 80)) = 0, 'unknown district → nothing';
+    ASSERT (SELECT count(*) FROM search_comparables(
+                NULL, NULL, 'apartment', ARRAY['sold'], 80)) = 0, 'no point and no district → nothing';
+    ASSERT (SELECT count(*) FROM search_comparables(
+                geo_point(23.7348, 37.9755), NULL, 'apartment', ARRAY['rent-listing'], 80)) = 1, 'rental search';
+END $$;
+
+DO $$
+BEGIN
+    -- An insufficient-data run is recorded without figures…
+    INSERT INTO valuations (property_id, method, engine, confidence, status, data_quality)
+    VALUES ('00000000-0000-0000-0000-0000000000a1', 'comparables', 'test', 0, 'insufficient-data',
+            '{"grade": "insufficient"}');
+    -- …and can never carry one.
+    BEGIN
+        INSERT INTO valuations (property_id, method, engine, estimate_low, estimate_mid, estimate_high, confidence, status)
+        VALUES ('00000000-0000-0000-0000-0000000000a1', 'comparables', 'test', 1, 2, 3, 0, 'insufficient-data');
+        RAISE EXCEPTION 'insufficient-data valuation with figures was accepted';
+    EXCEPTION WHEN check_violation THEN NULL;
+    END;
+    BEGIN
+        INSERT INTO valuations (property_id, method, engine, confidence) VALUES
+            ('00000000-0000-0000-0000-0000000000a1', 'comparables', 'test', 50);
+        RAISE EXCEPTION 'valued valuation without figures was accepted';
+    EXCEPTION WHEN check_violation THEN NULL;
+    END;
+    ASSERT (SELECT count(*) FROM property_latest_valuation
+            WHERE property_id = '00000000-0000-0000-0000-0000000000a1') = 0,
+        'latest-valuation view ignores insufficient-data runs';
+END $$;
+
 -- 6. Evaluation records: valuations, investments, expenses, reports ---------------------
 INSERT INTO valuations (id, property_id, method, engine, estimate_low, estimate_mid, estimate_high, confidence, verdict)
 VALUES ('00000000-0000-0000-0000-0000000000d1', '00000000-0000-0000-0000-0000000000a1', 'comparables', 'test',

@@ -20,6 +20,11 @@ management:
         include: health,info
 
 app:
+  database:
+    # Market, location and building data. Unset = modules report that no data is connected.
+    url: ${DATABASE_URL:}
+    user: ${DATABASE_USER:property}
+    password: ${POSTGRES_PASSWORD:}
   cors:
     allowed-origins: ${FRONTEND_ORIGIN:http://localhost:3000}
   inspection:

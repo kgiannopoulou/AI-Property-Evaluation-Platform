@@ -1,7 +1,6 @@
 /**
- * Valuation range, asking-price verdict, comparables and price-per-square-metre analysis.
- *
- * <p>Phase 2 placeholder: the package exists so the module boundaries are fixed early.
- * Implementation starts in Phase 4.
+ * Property valuation engine: comparable market records, published adjustments, a weighted
+ * median price per m², condition and location scores, a data-quality gate that refuses to value
+ * on thin evidence, and evidence-backed offer suggestions. No AI model sets the price.
  */
 package com.propertyapp.valuation;

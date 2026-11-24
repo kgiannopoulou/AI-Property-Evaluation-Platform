@@ -133,6 +133,22 @@ INSERT INTO comparables (source, source_ref, listing_type, location, property_ty
     ('demo-seed', 'cmp-6', 'rented',       geo_point(23.7420, 37.9680), 'apartment', 76, 2, 2, 1972, 'fair', 'D', 980, current_date - 120)
 ON CONFLICT (source, source_ref) DO NOTHING;
 
+-- More demo sales with the attributes the valuation engine adjusts for (V6), so a local
+-- POST /api/v1/valuations near Pangrati has enough evidence. Invented prices.
+INSERT INTO comparables (source, source_ref, listing_type, location, property_type, size_sqm, bedrooms, bathrooms,
+                         floor, elevator, parking, year_built, renovated_year, condition, energy_class, price,
+                         observed_on, verified) VALUES
+    ('demo-seed', 'cmp-7',  'sold', geo_point(23.7436, 37.9662), 'apartment', 74, 2, 1, 3, true,  false, 1974, NULL, 'fair', 'D', 241000, current_date - 60,  true),
+    ('demo-seed', 'cmp-8',  'sold', geo_point(23.7449, 37.9670), 'apartment', 80, 2, 1, 2, true,  false, 1971, 2008, 'good', 'C', 276000, current_date - 200, true),
+    ('demo-seed', 'cmp-9',  'sold', geo_point(23.7428, 37.9668), 'apartment', 72, 2, 1, 1, true,  false, 1969, NULL, 'fair', 'E', 222000, current_date - 300, true),
+    ('demo-seed', 'cmp-10', 'sold', geo_point(23.7455, 37.9657), 'apartment', 85, 2, 1, 4, true,  true,  1976, NULL, 'fair', 'D', 284000, current_date - 120, true),
+    ('demo-seed', 'cmp-11', 'sold', geo_point(23.7419, 37.9674), 'apartment', 77, 2, 1, 3, true,  false, 1973, NULL, 'fair', 'D', 247000, current_date - 420, true),
+    ('demo-seed', 'cmp-12', 'sold', geo_point(23.7462, 37.9679), 'apartment', 70, 2, 1, 2, false, false, 1966, NULL, 'needs-renovation', 'F', 196000, current_date - 30, true)
+ON CONFLICT (source, source_ref) DO NOTHING;
+
+UPDATE comparables SET bathrooms = 1, elevator = true, parking = false
+WHERE source = 'demo-seed' AND source_ref IN ('cmp-1', 'cmp-2', 'cmp-3', 'cmp-4');
+
 -- A valuation built from the comparables the search returns.
 INSERT INTO valuations (id, property_id, method, engine, estimate_low, estimate_mid, estimate_high, price_per_sqm,
                         confidence, asking_price, verdict, explanation)

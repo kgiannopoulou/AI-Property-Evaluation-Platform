@@ -3,7 +3,11 @@
 An independent second opinion on a property **before you make an offer**: valuation range, asking-price verdict,
 visible defects, ownership and renovation costs, investment returns and a negotiation range you can defend, all in one report.
 
-> **Status: Phase 6 of the roadmap (AI image analysis).** The AI Home Inspector sends property photos through the
+> **Status: Phase 7 of the roadmap (valuation engine).** The Java backend values a property from comparable
+> market records (similar properties nearby, price per m², size, layout, age, condition, floor, elevator, parking,
+> energy class, renovation needs, location quality and the local price trend), not from an AI guess, and refuses
+> to show a figure when the data is too thin (see [Valuation engine](#valuation-engine)).
+> The AI Home Inspector sends property photos through the
 > Java backend to the TypeScript ai-service, where a Claude vision model returns structured findings (see
 > [`ai-service/`](ai-service)). Users can submit a purchase or a rental with location,
 > building, energy, heating and cooling details, an appliance and furniture checklist, building expenses, facilities
@@ -50,7 +54,7 @@ intelligence, Stripe or a local provider for subscriptions, and Vercel plus a Ja
 ├── ai-service/src/
 │   └── image-analysis · defect-detection · equipment-detection · vision · report-generation · storage
 ├── database/
-│   ├── migrations/          V1 initial schema · V2 evaluation tables · V3 PostGIS search · V4 submission · V5 AI inspections
+│   ├── migrations/          V1 initial schema · V2 evaluation tables · V3 PostGIS search · V4 submission · V5 AI inspections · V6 valuation engine
 │   ├── tests/               schema and geo-search assertions (rolled back)
 │   └── seeds/               demo data for local development
 ├── compose.yaml             local PostGIS database
@@ -115,10 +119,51 @@ docker compose exec -T db psql -U property -d property_intelligence -v ON_ERROR_
 | 3 | Website design: all pages navigable, property form submits, analysis shows sample results | Done |
 | 4 | Database: 17 core tables, PostGIS geographical search (nearby pharmacies, transport, schools; comparables), constraints, demo seed, tests in CI | Done |
 | 5 | Property submission: purchase or rental, full property details, appliance checklist, building expenses, facilities, photos per area; schema V4 | Done |
-| 6 | AI image analysis: photos stored by the backend, Claude vision model in the ai-service, structured findings (photo reference, severity, confidence, recommendation, cost where data exists), hidden risks only as potential concerns; schema V5 | **Done** |
+| 6 | AI image analysis: photos stored by the backend, Claude vision model in the ai-service, structured findings (photo reference, severity, confidence, recommendation, cost where data exists), hidden risks only as potential concerns; schema V5 | Done |
+| 7 | Valuation engine: comparable records, published adjustments, weighted median price per m², fair-value range, condition and location scores, concerns, evidence-backed negotiation, data-quality gate that refuses to value on thin evidence; schema V6 | **Done** |
 | — | Backend API: accounts, properties and calculations move from browser storage to Spring Boot on this schema | Next |
 | — | Location Intelligence, Market Comparator with real data, Document Checker, AI-written reports | Planned |
 | — | Subscriptions and payments, deployment | Planned |
+
+## Valuation engine
+
+`POST /api/v1/valuations` ([`backend/.../valuation`](backend/src/main/java/com/propertyapp/valuation)) answers with the
+layout below. The figures are an illustration, not an actual valuation.
+
+| | |
+| --- | --- |
+| Asking price | €220,000 |
+| Estimated fair market value | €195,000–€210,000 |
+| Condition score | 72/100 |
+| Location score | 85/100 |
+| Potential concerns | Older kitchen · windows may need replacement · bathroom requires renovation |
+| Suggested negotiation strategy | Start with an offer supported by comparable properties and verified repair estimates, with the evidence behind the suggested maximum offer |
+
+How it works:
+
+1. **Comparables**: same property type and market (sales or lettings), size within ±40 %, observed in the last
+   36 months, within 1, 2 or 3 km (the smallest radius with enough evidence). They come from the `comparables`
+   table (PostGIS `search_comparables`), plus any sales the user knows of (weighted lower unless verified).
+2. **Adjustments** to each comparable's price per m², each one listed in the report: asking-price margin (5 %, 3 %
+   for rents), size, effective age (construction or renovation year), condition, floor and elevator, parking,
+   energy class, bathrooms, and the local price trend when at least six transactions span nine months. Attributes
+   the source did not record are skipped, never guessed, and count against data quality.
+3. Records needing more than 35 % gross adjustment, and outliers, are excluded with the reason shown. The rest are
+   weighted by evidence type (completed deal or asking price), distance, recency, size similarity and adjustment size.
+4. **Estimate** = weighted median adjusted price per m² × size; the range widens when comparables disagree, the
+   sample is small or there are only asking prices.
+5. **Data quality** is graded high, medium, low or **insufficient**. With fewer than 3 usable comparables, asking
+   prices alone below 5 records, a spread above ±30 % or no market database, the engine returns
+   `insufficient-data`: no range, no verdict, no offer, but the reasons and what would help.
+6. **Condition score** (declared condition, age, energy class, AI and rule-based findings) and **location score**
+   (rail, groceries, pharmacy, health, schools, parks and amenities within 1 km, or the district reference) are
+   reported with their breakdown.
+7. **Negotiation**: opening offer, target and maximum offer with the evidence behind them. Repair costs lower the
+   offers only when verified (a written quote or survey) and only beyond what the condition adjustment already covers.
+
+Set `DATABASE_URL` (see `.env.example`) to connect the backend to the database; load the demo seed for comparables
+around Pangrati. Without it the endpoint answers `insufficient-data`. On the website the panel appears at the top of
+the analysis page when `NEXT_PUBLIC_API_URL` is set, with an editor for repair estimates.
 
 ## Disclaimer
 
