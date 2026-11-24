@@ -1,7 +1,7 @@
 # AI service
 
-TypeScript (Node.js 24, no build step) service that examines property photographs with a vision model and
-returns structured findings to the Java backend. The browser never calls it, so the AI provider key stays here.
+TypeScript (Node.js 24, no build step) service that examines property photographs and reads floor plans with a
+vision model, and returns structured results to the Java backend. The browser never calls it, so the AI provider key stays here.
 
 ## Workflow
 
@@ -96,3 +96,12 @@ required unless `NODE_ENV` is `development` or `test`), `PHOTO_STORAGE` (`local`
 
 Errors: 400 invalid request, 401 missing token, 422 no photo could be read, 502 the model declined or the provider
 rejected the request, 503 try again later.
+
+## Floor plan reader
+
+`POST /v1/floor-plans {planId, storageKey}` reads one stored floor plan image and returns its rooms with the label as
+written, a room type, and the area and dimensions **printed** on the plan (converted to metres, original text kept).
+The model is told never to estimate sizes from the drawing; unprinted values are `null`. The service then drops
+implausible numbers, computes an area only when both sides are printed, and flags rooms whose printed area disagrees
+with their printed sides. The backend (`floorplan` package) checks the result against the declared size and room
+counts. Same model, structured output and server-side fallback as the inspection.

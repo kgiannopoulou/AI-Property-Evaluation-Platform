@@ -4,6 +4,10 @@ spring:
   config:
     # Local development: read the repository's .env (KEY=value lines are valid properties).
     import: optional:file:../.env[.properties]
+  jackson:
+    deserialization:
+      # A missing flag in a request means false / 0; required numbers are still enforced by validation.
+      FAIL_ON_NULL_FOR_PRIMITIVES: false
   servlet:
     multipart:
       # 24 photos of up to 5 MB each (the vision API's per-image limit).

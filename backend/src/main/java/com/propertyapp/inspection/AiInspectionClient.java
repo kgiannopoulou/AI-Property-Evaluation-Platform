@@ -44,7 +44,7 @@ public class AiInspectionClient {
 	 * The ai-service's own explanation ({@code {"error": "..."}}), when it sent one. It is written by our
 	 * service, never contains secrets, and tells the user why (e.g. the model declined, a photo was unreadable).
 	 */
-	static Optional<String> serviceMessage(byte[] body) {
+	public static Optional<String> serviceMessage(byte[] body) {
 		try {
 			String message = JsonMapper.shared().readTree(body).path("error").asString("");
 			return message.isBlank() || message.length() > 300 ? Optional.empty() : Optional.of(message);

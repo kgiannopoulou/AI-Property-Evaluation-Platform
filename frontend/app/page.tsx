@@ -3,7 +3,7 @@ import { ValueRangeBar } from "@/components/charts";
 import { IconArrowRight, IconCheck } from "@/components/icons";
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { Badge, ButtonLink, Card } from "@/components/ui";
-import { MODULES } from "@/lib/modules";
+import { MODULE_STATUS_LABELS, MODULES } from "@/lib/modules";
 
 export default function HomePage() {
   return (
@@ -163,7 +163,7 @@ function Modules() {
             </h2>
           </div>
           <p className="max-w-sm text-sm text-muted">
-            Modules marked <em>Preview</em> are visible in today&apos;s sample report. The rest are on the roadmap.
+            Modules marked <em>Engine</em> run in the backend with real data; <em>Preview</em> modules appear in the browser&apos;s sample report.
           </p>
         </div>
         <div className="mt-10 grid gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-2 lg:grid-cols-3">
@@ -171,8 +171,8 @@ function Modules() {
             <div key={m.name} className="bg-surface p-5">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="font-semibold">{m.name}</h3>
-                <Badge tone={m.status === "preview" ? "brand" : "neutral"}>
-                  {m.status === "preview" ? "Preview" : "Planned"}
+                <Badge tone={m.status === "engine" ? "positive" : m.status === "preview" ? "brand" : "neutral"}>
+                  {MODULE_STATUS_LABELS[m.status]}
                 </Badge>
               </div>
               <p className="mt-2 text-sm leading-relaxed text-muted">{m.description}</p>

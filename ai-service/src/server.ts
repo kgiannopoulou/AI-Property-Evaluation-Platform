@@ -4,8 +4,11 @@ import { pathToFileURL } from "node:url";
 import { loadConfig } from "./config.ts";
 import { CATEGORY_LABELS, FINDING_CATEGORIES, POTENTIAL_CONCERN_ONLY } from "./defect-detection/index.ts";
 import { CHECKLIST_ITEMS, PHOTO_AREAS } from "./equipment-detection/index.ts";
+import { FloorPlanImageError, readFloorPlan } from "./floor-plan/index.ts";
+import { ClaudeFloorPlanModel, type FloorPlanModel } from "./floor-plan/model.ts";
 import { LIMITS, validatePhotos } from "./image-analysis/index.ts";
 import { NoUsablePhotosError, parseContext, runInspection, type InspectionDeps } from "./inspection.ts";
+import { isSafeStorageKey } from "./storage/index.ts";
 import { ClaudeVisionModel, VisionError } from "./vision/claude.ts";
 
 const MAX_BODY_BYTES = 64 * 1024;
@@ -34,7 +37,7 @@ function authorised(req: IncomingMessage, token: string | null): boolean {
   return given.length === expected.length && timingSafeEqual(given, expected);
 }
 
-export type AppOptions = InspectionDeps & { serviceToken: string | null };
+export type AppOptions = InspectionDeps & { serviceToken: string | null; floorPlans?: FloorPlanModel };
 
 export function createApp(options: AppOptions) {
   return createServer(async (req, res) => {
@@ -77,10 +80,24 @@ export function createApp(options: AppOptions) {
         );
         return send(res, 200, report);
       }
+      if (req.method === "POST" && url.pathname === "/v1/floor-plans") {
+        const body = (await readJson(req)) as { planId?: unknown; storageKey?: unknown } | null;
+        if (!body || typeof body.planId !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(body.planId))
+          return send(res, 400, { error: "planId is required" });
+        if (typeof body.storageKey !== "string" || !isSafeStorageKey(body.storageKey))
+          return send(res, 400, { error: "storageKey is invalid" });
+        if (!options.floorPlans) return send(res, 503, { error: "The floor plan reader is not configured.", retryable: false });
+        const reading = await readFloorPlan(
+          { planId: body.planId, storageKey: body.storageKey },
+          { store: options.store, floorPlans: options.floorPlans },
+        );
+        return send(res, 200, reading);
+      }
       return send(res, 404, { error: "Not found" });
     } catch (err) {
       if (err instanceof Error && err.message === "too-large") return send(res, 413, { error: "Body too large" });
       if (err instanceof SyntaxError) return send(res, 400, { error: "Invalid JSON" });
+      if (err instanceof FloorPlanImageError) return send(res, 422, { error: err.message });
       if (err instanceof NoUsablePhotosError) return send(res, 422, { error: err.message, skipped: err.skipped });
       if (err instanceof VisionError) return send(res, err.retryable ? 503 : 502, { error: err.message, retryable: err.retryable });
       console.error(err);
@@ -94,6 +111,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   createApp({
     store: config.store,
     vision: new ClaudeVisionModel(config.model),
+    floorPlans: new ClaudeFloorPlanModel(config.model),
     includeIllustrativeCosts: config.includeIllustrativeCosts,
     serviceToken: config.serviceToken,
   }).listen(config.port, () =>

@@ -208,6 +208,35 @@ BEGIN
         'latest-valuation view ignores insufficient-data runs';
 END $$;
 
+-- 5c. V7: environmental risks — covered vs not assessed, highest zone wins -----------------
+INSERT INTO environmental_risk_layers (id, risk_type, name, source, coverage) VALUES
+    (9001, 'flood', 'Test flood layer', 'test', ST_Multi(ST_MakeEnvelope(23.70, 37.95, 23.80, 38.00, 4326))::geography);
+INSERT INTO environmental_risk_zones (layer_id, level, description, area) VALUES
+    (9001, 'medium', 'Test medium zone', ST_Multi(ST_MakeEnvelope(23.73, 37.97, 23.74, 37.98, 4326))::geography),
+    (9001, 'high',   'Test high zone',   ST_Multi(ST_MakeEnvelope(23.734, 37.974, 23.736, 37.976, 4326))::geography);
+
+DO $$
+BEGIN
+    ASSERT (SELECT level FROM environmental_risks_at(geo_point(23.7348, 37.9755)) WHERE layer_name = 'Test flood layer') = 'high',
+        'inside both zones: the higher level is reported';
+    ASSERT (SELECT covered AND level IS NULL FROM environmental_risks_at(geo_point(23.79, 37.99)) WHERE layer_name = 'Test flood layer'),
+        'covered by the layer but outside every zone';
+    ASSERT NOT (SELECT covered FROM environmental_risks_at(geo_point(22.0, 39.0)) WHERE layer_name = 'Test flood layer'),
+        'outside the layer coverage: not assessed';
+    ASSERT (SELECT count(*) FROM location_summary_at(geo_point(23.7348, 37.9755), 1000)) >= 0, 'location_summary_at runs';
+    BEGIN
+        INSERT INTO documents (property_id, document_type, storage_key, file_name, content_type, size_bytes)
+        VALUES ('00000000-0000-0000-0000-0000000000a1', 'engineer-certificate', 'test/v7-doc.pdf', 'cert.pdf', 'application/pdf', 10);
+    EXCEPTION WHEN check_violation THEN RAISE EXCEPTION 'V7 document type rejected';
+    END;
+    BEGIN
+        INSERT INTO floor_plan_readings (property_id, model, served_by, legibility) VALUES
+            ('00000000-0000-0000-0000-0000000000a1', 'm', 'm', 'blurry');
+        RAISE EXCEPTION 'invalid legibility accepted';
+    EXCEPTION WHEN check_violation THEN NULL;
+    END;
+END $$;
+
 -- 6. Evaluation records: valuations, investments, expenses, reports ---------------------
 INSERT INTO valuations (id, property_id, method, engine, estimate_low, estimate_mid, estimate_high, confidence, verdict)
 VALUES ('00000000-0000-0000-0000-0000000000d1', '00000000-0000-0000-0000-0000000000a1', 'comparables', 'test',

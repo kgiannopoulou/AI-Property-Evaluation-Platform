@@ -12,7 +12,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /** Condition and location scores, each with the items that produced it. */
-final class Scores {
+public final class Scores {
 
 	private Scores() {}
 
@@ -89,7 +89,7 @@ final class Scores {
 	private static final double AMENITY_POINTS = 15;
 	private static final double RADIUS_M = 1000;
 
-	static Score location(Optional<LocationEvidence> evidence) {
+	public static Score location(Optional<LocationEvidence> evidence) {
 		if (evidence.isEmpty()) {
 			return new Score(null, "No location data is available for this address", List.of());
 		}

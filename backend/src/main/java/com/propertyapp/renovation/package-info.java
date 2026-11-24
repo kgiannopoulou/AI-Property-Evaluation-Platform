@@ -1,7 +1,4 @@
 /**
- * Repair estimates and basic/medium/premium renovation scenarios.
- *
- * <p>Phase 2 placeholder: the package exists so the module boundaries are fixed early.
- * Implementation starts in Phase 4.
+ * Renovation Planner: basic, medium and premium scenarios with itemised cost ranges and value after works.
  */
 package com.propertyapp.renovation;

@@ -1,7 +1,4 @@
 /**
- * Assembles the property evaluation report and its downloadable export.
- *
- * <p>Phase 2 placeholder: the package exists so the module boundaries are fixed early.
- * Implementation starts in Phase 4.
+ * Reports: runs the modules on the given inputs and renders a downloadable PDF evaluation report.
  */
 package com.propertyapp.reports;

@@ -1,7 +1,4 @@
 /**
- * Purchase costs, mortgage, ownership cost and investment (yield/ROI) calculations.
- *
- * <p>Phase 2 placeholder: the package exists so the module boundaries are fixed early.
- * Implementation starts in Phase 4.
+ * Financial Calculator: purchase taxes and fees, mortgage with a stress test, and the monthly cost of ownership.
  */
 package com.propertyapp.financial;

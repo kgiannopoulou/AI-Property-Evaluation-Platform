@@ -14,16 +14,16 @@ import java.util.Map;
  * against the data quality. These are the engine's starting assumptions; with enough local
  * transactions they should be re-estimated by regression.
  */
-final class Adjustments {
+public final class Adjustments {
 
 	private Adjustments() {}
 
 	/** Value relative to a property in good condition. */
-	static final Map<String, Double> CONDITION = Map.of(
+	public static final Map<String, Double> CONDITION = Map.of(
 			"needs-renovation", -0.15, "fair", -0.06, "good", 0.0, "excellent", 0.07);
 
 	/** Value relative to energy class C. */
-	static final Map<String, Double> ENERGY = Map.of(
+	public static final Map<String, Double> ENERGY = Map.of(
 			"A+", 0.06, "A", 0.05, "B+", 0.03, "B", 0.02, "C", 0.0, "D", -0.02, "E", -0.04, "F", -0.06, "G", -0.08);
 
 	/** Larger homes sell for less per m²: price per m² scales with size^-0.12. */

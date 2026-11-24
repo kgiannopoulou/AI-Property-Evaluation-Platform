@@ -16,6 +16,7 @@ DELETE FROM buildings   WHERE id = 'd0000000-0000-4000-8000-0000000000b1';
 DELETE FROM comparables WHERE source = 'demo-seed';
 DELETE FROM location_data WHERE source = 'demo-seed';
 DELETE FROM districts   WHERE source = 'demo-seed';
+DELETE FROM environmental_risk_layers WHERE source = 'demo-seed';
 
 INSERT INTO districts (name, boundary, sale_per_sqm, rent_per_sqm, location_score, source) VALUES
     ('[DEMO] Pangrati', ST_Multi(ST_MakeEnvelope(23.737, 37.962, 23.752, 37.973, 4326))::geography, 3600, 13.5, 82, 'demo-seed'),
@@ -170,6 +171,19 @@ INSERT INTO reports (property_id, requested_by, valuation_id, report_type, title
 SELECT 'd0000000-0000-4000-8000-0000000000a1', 'd0000000-0000-4000-8000-000000000001',
        'd0000000-0000-4000-8000-0000000000d1', 'full-evaluation', '[DEMO] Full evaluation', 'queued'
 WHERE NOT EXISTS (SELECT 1 FROM reports WHERE property_id = 'd0000000-0000-4000-8000-0000000000a1');
+
+-- V7: demo risk layers (invented zones, NOT official flood or noise maps) and building details.
+INSERT INTO environmental_risk_layers (risk_type, name, source, coverage) VALUES
+    ('flood', '[DEMO] Flood zones, central Athens', 'demo-seed', ST_Multi(ST_MakeEnvelope(23.70, 37.94, 23.78, 37.99, 4326))::geography),
+    ('noise', '[DEMO] Road noise, central Athens', 'demo-seed', ST_Multi(ST_MakeEnvelope(23.70, 37.94, 23.78, 37.99, 4326))::geography);
+INSERT INTO environmental_risk_zones (layer_id, level, description, area)
+SELECT id, 'medium', '[DEMO] Busy avenue, 65-70 dB daytime', ST_Multi(ST_MakeEnvelope(23.742, 37.965, 23.746, 37.968, 4326))::geography
+FROM environmental_risk_layers WHERE source = 'demo-seed' AND risk_type = 'noise';
+
+UPDATE buildings SET elevator_installed_year = 1998, elevator_last_inspection = current_date - 400,
+                     roof_waterproofing_year = 2008, external_insulation = false, windows = 'single', pilotis = true,
+                     reserve_fund = 3200, planned_levy_per_unit = 1400
+WHERE id = 'd0000000-0000-4000-8000-0000000000b1';
 
 COMMIT;
 

@@ -12,14 +12,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1")
 public class StatusController {
 
+	/** Modules with a working API. */
 	static final List<String> MODULES = List.of(
-			"users", "properties", "valuation", "financial", "renovation", "location", "subscriptions", "reports",
-			"inspection");
+			"inspection", "valuation", "location", "financial", "renovation", "market", "investment", "negotiation",
+			"building", "documents", "floorplan", "comparison", "reports");
 
 	public record Status(String service, String phase, List<String> modules) {}
 
 	@GetMapping("/status")
 	public Status status() {
-		return new Status("property-backend", "scaffold", MODULES);
+		return new Status("property-backend", "phase-8", MODULES);
 	}
 }

@@ -22,7 +22,7 @@ class StatusControllerTest {
 		mvc.perform(get("/api/v1/status"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.service").value("property-backend"))
-				.andExpect(jsonPath("$.modules.length()").value(9));
+				.andExpect(jsonPath("$.modules.length()").value(13));
 	}
 
 	@Test

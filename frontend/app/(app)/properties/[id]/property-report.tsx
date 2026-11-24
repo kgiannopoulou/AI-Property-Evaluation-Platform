@@ -22,6 +22,7 @@ import { useHydrated } from "@/lib/local-store";
 import { deleteProperty, runAnalysis, useAnalyses, useProperties } from "@/properties/store";
 import { AiInspectionPanel } from "@/inspection/ai-inspection-panel";
 import { ValuationPanel } from "@/valuation/valuation-panel";
+import { DownloadReportButton } from "@/reports/download-report-button";
 import { photosByArea } from "@/properties/submission";
 import {
   APPLIANCES,
@@ -98,9 +99,10 @@ export function PropertyReport({ id }: { id: string }) {
             </Button>
             {analysis && (
               <Button variant="secondary" onClick={() => window.print()}>
-                <IconDownload /> Download report
+                <IconDownload /> Print page
               </Button>
             )}
+            {analysis && <DownloadReportButton property={property} ruleFindings={analysis.inspection} />}
             {confirmDelete ? (
               <Button
                 variant="danger"

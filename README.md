@@ -3,7 +3,11 @@
 An independent second opinion on a property **before you make an offer**: valuation range, asking-price verdict,
 visible defects, ownership and renovation costs, investment returns and a negotiation range you can defend, all in one report.
 
-> **Status: Phase 7 of the roadmap (valuation engine).** The Java backend values a property from comparable
+> **Status: Phase 8 of the roadmap (intelligence modules).** Location Intelligence, Financial Calculator, Renovation
+> Planner, Market Comparator, Investment Calculator, Negotiation Assistant, Building Analysis, Document Checker, Floor
+> Plan Reader, Property Comparison and PDF Reports run as separate Java features in the backend, with AI used only for
+> reading photographs and floor plans (see [Intelligence modules](#intelligence-modules)).
+> Phase 7: the Java backend values a property from comparable
 > market records (similar properties nearby, price per m², size, layout, age, condition, floor, elevator, parking,
 > energy class, renovation needs, location quality and the local price trend), not from an AI guess, and refuses
 > to show a figure when the data is too thin (see [Valuation engine](#valuation-engine)).
@@ -21,8 +25,8 @@ visible defects, ownership and renovation costs, investment returns and a negoti
 | Part | Technology | Responsibility |
 | --- | --- | --- |
 | [`frontend/`](frontend) | TypeScript · React 19 · Next.js 16 · Tailwind CSS 4 | Website, dashboard, property forms, photo uploads, charts and reports |
-| [`backend/`](backend) | Java 21 · Spring Boot 4 | Accounts, properties, permissions, subscriptions, calculations, comparisons and business rules |
-| [`ai-service/`](ai-service) | Node.js · TypeScript · Anthropic SDK | Photo analysis with a Claude vision model: defects, missing appliances and furniture, condition; structured findings with safety rules and cost lookup |
+| [`backend/`](backend) | Java 21 · Spring Boot 4 · OpenPDF | Valuation engine and the intelligence modules (location, costs, renovation, market, investment, negotiation, building, documents, floor plans, comparison, PDF reports); later accounts and subscriptions |
+| [`ai-service/`](ai-service) | Node.js · TypeScript · Anthropic SDK | Claude vision model: photo inspection (defects, missing appliances and furniture, condition) and floor plan reading (rooms and printed measurements); structured, validated output |
 | [`database/`](database) | PostgreSQL · PostGIS | 17 core tables (users, properties, images, features, equipment, buildings, inspections, valuations, comparables, location data, expenses, renovations, investments, documents, saved properties, subscriptions, reports) and PostGIS search for nearby facilities and comparables |
 
 ```
@@ -50,11 +54,12 @@ intelligence, Stripe or a local provider for subscriptions, and Vercel plus a Ja
 │   ├── analysis/            sample analysis engine and illustrative reference data
 │   └── lib/                 formatting, session, local storage, module list
 ├── backend/src/main/java/com/propertyapp/
-│   └── users · properties · valuation · financial · renovation · location · subscriptions · reports · common
+│   └── valuation · location · financial · renovation · market · investment · negotiation · building · documents
+│       · floorplan · comparison · reports · inspection · common  (users · properties · subscriptions: later)
 ├── ai-service/src/
-│   └── image-analysis · defect-detection · equipment-detection · vision · report-generation · storage
+│   └── image-analysis · defect-detection · equipment-detection · vision · report-generation · floor-plan · storage
 ├── database/
-│   ├── migrations/          V1 initial schema · V2 evaluation tables · V3 PostGIS search · V4 submission · V5 AI inspections · V6 valuation engine
+│   ├── migrations/          V1 initial schema · V2 evaluation tables · V3 PostGIS search · V4 submission · V5 AI inspections · V6 valuation engine · V7 modules
 │   ├── tests/               schema and geo-search assertions (rolled back)
 │   └── seeds/               demo data for local development
 ├── compose.yaml             local PostGIS database
@@ -120,10 +125,35 @@ docker compose exec -T db psql -U property -d property_intelligence -v ON_ERROR_
 | 4 | Database: 17 core tables, PostGIS geographical search (nearby pharmacies, transport, schools; comparables), constraints, demo seed, tests in CI | Done |
 | 5 | Property submission: purchase or rental, full property details, appliance checklist, building expenses, facilities, photos per area; schema V4 | Done |
 | 6 | AI image analysis: photos stored by the backend, Claude vision model in the ai-service, structured findings (photo reference, severity, confidence, recommendation, cost where data exists), hidden risks only as potential concerns; schema V5 | Done |
-| 7 | Valuation engine: comparable records, published adjustments, weighted median price per m², fair-value range, condition and location scores, concerns, evidence-backed negotiation, data-quality gate that refuses to value on thin evidence; schema V6 | **Done** |
-| — | Backend API: accounts, properties and calculations move from browser storage to Spring Boot on this schema | Next |
-| — | Location Intelligence, Market Comparator with real data, Document Checker, AI-written reports | Planned |
+| 7 | Valuation engine: comparable records, published adjustments, weighted median price per m², fair-value range, condition and location scores, concerns, evidence-backed negotiation, data-quality gate that refuses to value on thin evidence; schema V6 | Done |
+| 8 | Intelligence modules as separate Java features: Location Intelligence (with environmental risk layers), Financial Calculator, Renovation Planner, Market Comparator, Investment Calculator, Negotiation Assistant, Building Analysis, Document Checker, Floor Plan Reader (AI), Property Comparison, PDF Reports; schema V7 | **Done** |
+| — | Website pages for document upload, floor plan upload and the backend modules; accounts and properties move from browser storage to Spring Boot | Next |
 | — | Subscriptions and payments, deployment | Planned |
+
+## Intelligence modules
+
+Each module is its own package under [`backend/.../propertyapp`](backend/src/main/java/com/propertyapp) with a
+JSON endpoint and unit tests. AI is used only where reading an image is the job (photographs and floor plans); every
+price, cost, score and check is deterministic and traceable. Modules that need data the backend does not have
+(market records, facilities, risk layers, ENFIA) say so instead of inventing it.
+
+| Module | Endpoint | What it does | AI |
+| --- | --- | --- | --- |
+| Location Intelligence | `POST /api/v1/location` | Nearest transport, schools, parks, health care and services with walking times; location score; environmental risks per type as *in a zone*, *outside mapped zones* or *not assessed* (no layer covers the point) | No |
+| Financial Calculator | `POST /api/v1/financial` | Transfer tax (on the higher of price and objective value) or VAT, first-home exemption, notary, lawyer, registry and agent fees with VAT; mortgage with a +2-point stress test; monthly ownership costs, with estimates labelled and unknowns (ENFIA) listed | No |
+| Renovation Planner | `POST /api/v1/renovation` | Basic, medium and premium scenarios from illustrative cost bands (a verified quote replaces a band); duration; value after works from the valuation engine's condition ladder; which inspection concerns each scenario fixes | No |
+| Market Comparator | `POST /api/v1/market` | Price per m² distribution (P10-P90) of completed deals and asking prices, the property's percentile, asking-to-sale gap, quarterly medians; statistics withheld below five records | No |
+| Investment Calculator | `POST /api/v1/investment` | Gross and net yield, cap rate, cash-on-cash, cash flow before and after Greek rental tax, break-even occupancy, DSCR, IRR, equity multiple, year-by-year projection | No |
+| Negotiation Assistant | `POST /api/v1/negotiation` | Combines valuation, building and documents: offers only when the valuation has enough data, arguments graded strong/moderate/weak by evidence, contract conditions and walk-away signals | No |
+| Building Analysis | `POST /api/v1/building` | Structure against the seismic codes (1959, 1985, 1995/2000), pilotis, elevator age and inspection, roof waterproofing, insulation and glazing, legality, planned works and levies; shared costs per m² against a typical range; unknown items stay *unknown* | No |
+| Document Checker | `POST /api/v1/documents/check` | Required documents for a sale or lease, validity periods (e.g. engineer's certificate 2 months, energy certificate 10 years), size/owner/address/energy-class consistency across deed, cadastre and plan, encumbrances, unauthorised constructions, permit dates | No |
+| Floor Plan Reader | `POST /api/v1/floor-plans` (multipart) | The vision model transcribes rooms and **printed** measurements only (never measured from pixels); the backend checks room total against the declared size and bedroom/bathroom counts | **Yes** |
+| Property Comparison | `POST /api/v1/comparison` | 2-6 properties side by side, best value per measure, weighted ranking; missing measures are left out and listed, not guessed | No |
+| Reports | `POST /api/v1/reports/pdf` | Runs the requested modules on the given inputs and renders an A4 PDF (Greek text supported); `POST /api/v1/reports` returns the same contents as JSON | No |
+
+On the website the analysis page has a **PDF report** button that sends the property to the backend (shown when
+`NEXT_PUBLIC_API_URL` is set). The other modules are available through the API; their pages come next. Load the demo
+seed for comparables, facilities, a demo noise zone and building details around Pangrati.
 
 ## Valuation engine
 

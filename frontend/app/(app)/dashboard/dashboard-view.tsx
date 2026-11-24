@@ -6,7 +6,7 @@ import { IconArrowRight, IconPlus } from "@/components/icons";
 import { ButtonLink, Card, CardHeader, EmptyState, PageHeader, Stat } from "@/components/ui";
 import { formatDate, formatEurCompact } from "@/lib/format";
 import { useHydrated } from "@/lib/local-store";
-import { MODULES } from "@/lib/modules";
+import { MODULE_STATUS_LABELS, MODULES } from "@/lib/modules";
 import { DEMO_SESSION, PLAN_LIMITS, useSession } from "@/lib/session";
 import { useAnalyses, useProperties } from "@/properties/store";
 import { PropertyThumb, SampleTag, VerdictBadge, formatAsking } from "@/properties/ui";
@@ -172,7 +172,7 @@ export function DashboardView() {
       </div>
 
       <Card className="mt-6">
-        <CardHeader title="Modules" description="What is in this preview and what is coming next" />
+        <CardHeader title="Modules" description="Engine: runs in the backend · Preview: sample report in the browser" />
         <ul className="grid gap-px overflow-hidden rounded-b-xl bg-line sm:grid-cols-2 lg:grid-cols-3">
           {MODULES.map((m) => (
             <li key={m.name} className="bg-surface px-5 py-4">
@@ -180,12 +180,12 @@ export function DashboardView() {
                 {m.name}
                 <span
                   className={
-                    m.status === "preview"
-                      ? "text-[11px] font-semibold tracking-wide text-brand-700 uppercase"
-                      : "text-[11px] font-semibold tracking-wide text-subtle uppercase"
+                    m.status === "planned"
+                      ? "text-[11px] font-semibold tracking-wide text-subtle uppercase"
+                      : "text-[11px] font-semibold tracking-wide text-brand-700 uppercase"
                   }
                 >
-                  {m.status === "preview" ? "Preview" : "Planned"}
+                  {MODULE_STATUS_LABELS[m.status]}
                 </span>
               </p>
               <p className="mt-1 text-xs leading-relaxed text-muted">{m.description}</p>

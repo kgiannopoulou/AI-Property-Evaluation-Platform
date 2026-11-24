@@ -27,8 +27,8 @@ const NAV = [
   { href: "/settings", label: "Profile & settings", icon: IconSettings },
 ];
 
-/** Planned modules shown in the sidebar so the roadmap is visible in-product. */
-const ROADMAP = ["AI Home Inspector", "Location Intelligence", "Market Comparator", "Document Checker"];
+/** Shown in the sidebar: backend engines that have no page yet, and the rest of the roadmap. */
+const ROADMAP = ["Document upload & checks", "Floor plan upload", "Accounts & cloud sync", "Subscriptions & payments"];
 
 function isActive(pathname: string, href: string) {
   if (href === "/properties") return pathname === "/properties";
