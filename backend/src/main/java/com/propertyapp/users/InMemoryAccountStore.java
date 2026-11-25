@@ -22,7 +22,7 @@ public class InMemoryAccountStore implements AccountStore {
 
 	private record StoredKey(ApiKey key, String hash) {}
 
-	private record Event(UUID id, UUID account, LocalDate period, String ref) {}
+	private record Event(UUID id, UUID account, LocalDate period, String ref, UUID actor, String endpoint, Instant at) {}
 
 	private final Map<UUID, User> users = new LinkedHashMap<>();
 	private final Map<String, Session> sessions = new HashMap<>();
@@ -179,7 +179,7 @@ public class InMemoryAccountStore implements AccountStore {
 		if (seen.size() + fresh.size() > limit) return new Usage(false, 0, seen.size(), List.of());
 		List<UUID> ids = new ArrayList<>();
 		for (String ref : fresh) {
-			Event e = new Event(UUID.randomUUID(), accountId, period, ref);
+			Event e = new Event(UUID.randomUUID(), accountId, period, ref, actorId, endpoint, Instant.now());
 			events.add(e);
 			ids.add(e.id());
 		}
@@ -209,5 +209,29 @@ public class InMemoryAccountStore implements AccountStore {
 	/** For tests. */
 	public synchronized List<Enquiry> enquiries() {
 		return List.copyOf(enquiries);
+	}
+
+	@Override
+	public synchronized List<UsageEvent> usageEvents(UUID userId) {
+		return events.stream().filter(e -> userId.equals(e.account()) || userId.equals(e.actor()))
+				.sorted(java.util.Comparator.comparing(Event::at).reversed())
+				.map(e -> new UsageEvent(e.period(), e.ref(), e.endpoint(), e.account(), e.actor(), e.at())).toList();
+	}
+
+	@Override
+	public synchronized void deleteUser(UUID userId) {
+		users.remove(userId);
+		sessions.values().removeIf(s -> s.userId().equals(userId));
+		keys.values().removeIf(k -> k.key().ownerId().equals(userId));
+		subscriptions.values().removeIf(s -> s.userId().equals(userId));
+		organisations.values().stream().filter(o -> o.ownerId().equals(userId)).map(Organisation::id).toList()
+				.forEach(id -> {
+					organisations.remove(id);
+					memberships.remove(id);
+				});
+		memberships.values().forEach(m -> m.remove(userId));
+		events.removeIf(e -> e.account().equals(userId));
+		events.replaceAll(e -> userId.equals(e.actor()) ? new Event(e.id(), e.account(), e.period(), e.ref(), null, e.endpoint(), e.at()) : e);
+		enquiries.removeIf(e -> userId.equals(e.userId()));
 	}
 }

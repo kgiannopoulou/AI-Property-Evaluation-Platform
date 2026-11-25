@@ -10,18 +10,21 @@ import { currentToken, sessionStore } from "./session";
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "";
 
-export type ApiErrorCode = "unauthenticated" | "upgrade-required" | "quota-exceeded" | "other";
+export type ApiErrorCode = "unauthenticated" | "upgrade-required" | "quota-exceeded" | "consent-required" | "other";
 
 export class ApiError extends Error {
   readonly code: ApiErrorCode;
   readonly status: number;
   readonly requiredPlan?: string;
+  /** For consent-required: the consent purpose the backend asks for. */
+  readonly purpose?: string;
 
-  constructor(message: string, code: ApiErrorCode = "other", status = 0, requiredPlan?: string) {
+  constructor(message: string, code: ApiErrorCode = "other", status = 0, requiredPlan?: string, purpose?: string) {
     super(message);
     this.code = code;
     this.status = status;
     this.requiredPlan = requiredPlan;
+    this.purpose = purpose;
   }
 }
 
@@ -57,9 +60,17 @@ export async function request(
 }
 
 export async function toApiError(res: Response, what: string): Promise<ApiError> {
-  const problem = (await res.json().catch(() => null)) as { detail?: string; code?: string; requiredPlan?: string } | null;
+  const problem = (await res.json().catch(() => null)) as {
+    detail?: string;
+    code?: string;
+    requiredPlan?: string;
+    purpose?: string;
+  } | null;
   const code: ApiErrorCode =
-    problem?.code === "unauthenticated" || problem?.code === "upgrade-required" || problem?.code === "quota-exceeded"
+    problem?.code === "unauthenticated" ||
+    problem?.code === "upgrade-required" ||
+    problem?.code === "quota-exceeded" ||
+    problem?.code === "consent-required"
       ? problem.code
       : "other";
   if (code === "unauthenticated" && sessionStore.get()?.token) {
@@ -67,7 +78,13 @@ export async function toApiError(res: Response, what: string): Promise<ApiError>
     const s = sessionStore.get();
     if (s) sessionStore.set({ ...s, token: undefined, tokenExpiresAt: undefined });
   }
-  return new ApiError(problem?.detail ?? `${what} failed (${res.status}).`, code, res.status, problem?.requiredPlan);
+  return new ApiError(
+    problem?.detail ?? `${what} failed (${res.status}).`,
+    code,
+    res.status,
+    problem?.requiredPlan,
+    problem?.purpose,
+  );
 }
 
 /** POST JSON and parse the JSON answer. */

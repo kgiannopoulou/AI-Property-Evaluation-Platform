@@ -33,7 +33,7 @@ public class AccessInterceptor implements HandlerInterceptor {
 	static final Pattern REF = Pattern.compile("[A-Za-z0-9_.:-]{1,100}");
 
 	static final Set<String> PUBLIC = Set.of("/api/v1/status", "/api/v1/plans", "/api/v1/auth/register", "/api/v1/auth/login",
-			"/api/v1/billing/webhook");
+			"/api/v1/billing/webhook", "/api/v1/privacy/retention");
 
 	private final AccountService accounts;
 	private final Entitlements entitlements;

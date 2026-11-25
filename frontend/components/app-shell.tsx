@@ -29,7 +29,7 @@ const NAV = [
 ];
 
 /** Shown in the sidebar: backend engines that have no page yet, and the rest of the roadmap. */
-const ROADMAP = ["Document upload & checks", "Floor plan upload", "Accounts & cloud sync", "Subscriptions & payments"];
+const ROADMAP = ["Document upload & checks", "Floor plan upload", "Saved properties in the cloud"];
 
 function isActive(pathname: string, href: string) {
   if (href === "/properties") return pathname === "/properties";

@@ -37,6 +37,17 @@ class DocumentCheckerTest {
 	}
 
 	@Test
+	void everyResultSaysItIsAnAssistanceToolNotALegalCertification() {
+		var ready = check(complete(), List.of("Παπαδόπουλος Γιώργος"));
+		var empty = check(List.of(), List.of());
+		for (var r : List.of(ready, empty)) {
+			assertThat(r.notice().kind()).isEqualTo("assistance-tool");
+			assertThat(r.notice().title()).isEqualTo("Assistance tool, not a legal certification");
+			assertThat(r.notice().notThis()).contains("legal advice", "a title search or certificate of clear title");
+		}
+	}
+
+	@Test
 	void aCompleteConsistentSetIsReady() {
 		var r = check(complete(), List.of("Παπαδόπουλος Γιώργος"));
 		assertThat(r.findings()).isEmpty();

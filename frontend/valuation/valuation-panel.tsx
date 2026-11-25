@@ -90,6 +90,7 @@ export function ValuationPanel({ property, ruleFindings }: { property: Property;
           </p>
         )}
 
+        <AutomatedEstimateNotice notice={report?.notice} />
         {report && (report.status === "valued" ? <Valued r={report} money={money} /> : <Insufficient r={report} />)}
 
         <RepairQuotes propertyId={property.id} quotes={quotes} />
@@ -112,6 +113,30 @@ export function ValuationPanel({ property, ruleFindings }: { property: Property;
         )}
       </div>
     </Card>
+  );
+}
+
+const DEFAULT_NOTICE = {
+  title: "Automated estimate, not a professional appraisal",
+  text:
+    "This figure is calculated by software from comparable market records and the details you entered. No one has " +
+    "inspected the property. A professional appraisal is carried out by a certified valuer who visits the property and " +
+    "signs a report; banks, courts and tax authorities ask for that, not for this estimate.",
+};
+
+/** Shown with every valuation: the backend sends the wording, the default covers older saved reports. */
+function AutomatedEstimateNotice({ notice }: { notice?: ValuationReport["notice"] }) {
+  const n = notice ?? DEFAULT_NOTICE;
+  return (
+    <div className="rounded-lg border border-warning/25 bg-warning-soft px-4 py-3 text-sm" role="note">
+      <p className="font-semibold text-warning">{n.title}</p>
+      <p className="mt-1 text-text/80">
+        {n.text}{" "}
+        <a href="/terms#estimates" className="font-medium text-brand-700 hover:underline">
+          Estimate vs appraisal
+        </a>
+      </p>
+    </div>
   );
 }
 

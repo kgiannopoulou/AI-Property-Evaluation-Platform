@@ -210,7 +210,7 @@ class EnforcementTest {
 	@Test
 	void accountEndpoints() throws Exception {
 		String body = anonymous().perform(json(post("/api/v1/auth/register"),
-						"{\"email\":\"new.user@example.test\",\"password\":\"correct horse battery\",\"fullName\":\"New User\"}"))
+						"{\"email\":\"new.user@example.test\",\"password\":\"correct horse battery\",\"fullName\":\"New User\",\"acceptTerms\":true}"))
 				.andExpect(status().isCreated()).andExpect(jsonPath("$.token").isString())
 				.andExpect(jsonPath("$.user.passwordHash").doesNotExist())
 				.andReturn().getResponse().getContentAsString();

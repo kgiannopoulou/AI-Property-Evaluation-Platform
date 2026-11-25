@@ -31,7 +31,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
     if (!EMAIL_RE.test(email)) next.email = "Enter a valid email address.";
     if (password.length < (mode === "register" ? minPassword : 1))
       next.password = mode === "register" ? `Use at least ${minPassword} characters.` : "Enter your password.";
-    if (mode === "register" && !data.get("terms")) next.terms = "Please accept the terms to continue.";
+    if (mode === "register" && !data.get("terms")) next.terms = "Accept the terms and privacy notice to continue.";
     setErrors(next);
     if (Object.keys(next).length) return;
 
@@ -43,7 +43,11 @@ export function AuthForm({ mode }: { mode: Mode }) {
     }
     setBusy(true);
     try {
-      if (mode === "register") await register(name, email, password);
+      if (mode === "register")
+        await register(name, email, password, {
+          aiPhotoProcessing: !!data.get("aiPhotoProcessing"),
+          marketingEmails: !!data.get("marketingEmails"),
+        });
       else await login(email, password);
       router.push("/dashboard");
     } catch (err) {
@@ -100,13 +104,52 @@ export function AuthForm({ mode }: { mode: Mode }) {
               />
             </Field>
             {isRegister && (
-              <div>
-                <label className="flex items-start gap-2 text-sm text-muted">
-                  <input type="checkbox" name="terms" className="mt-0.5 accent-brand-600" />
-                  I agree that results are estimates, not a formal valuation or financial advice.
-                </label>
-                {errors.terms && <p className="mt-1 text-xs text-negative">{errors.terms}</p>}
-              </div>
+              <fieldset className="space-y-2.5">
+                <legend className="sr-only">Terms and consent</legend>
+                <div>
+                  <label className="flex items-start gap-2 text-sm text-muted">
+                    <input
+                      type="checkbox"
+                      name="terms"
+                      className="mt-0.5 accent-brand-600"
+                      aria-invalid={!!errors.terms}
+                      aria-describedby={errors.terms ? "terms-error" : undefined}
+                    />
+                    <span>
+                      I accept the{" "}
+                      <Link href="/terms" className="font-medium text-brand-700 hover:underline" target="_blank">
+                        terms
+                      </Link>{" "}
+                      and have read the{" "}
+                      <Link href="/privacy" className="font-medium text-brand-700 hover:underline" target="_blank">
+                        privacy notice
+                      </Link>
+                      . I understand that valuations are automated estimates, not professional appraisals, and that
+                      the document checker is an assistance tool, not legal advice. (required)
+                    </span>
+                  </label>
+                  {errors.terms && (
+                    <p id="terms-error" className="mt-1 text-xs text-negative">
+                      {errors.terms}
+                    </p>
+                  )}
+                </div>
+                {API_URL && (
+                  <>
+                    <label className="flex items-start gap-2 text-sm text-muted">
+                      <input type="checkbox" name="aiPhotoProcessing" className="mt-0.5 accent-brand-600" />
+                      <span>
+                        Allow photos and floor plans I upload to be analysed by our AI provider (optional; you can
+                        decide later)
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-2 text-sm text-muted">
+                      <input type="checkbox" name="marketingEmails" className="mt-0.5 accent-brand-600" />
+                      <span>Send me occasional product news by email (optional)</span>
+                    </label>
+                  </>
+                )}
+              </fieldset>
             )}
             {errors.form && (
               <p role="alert" className="rounded-lg border border-negative/20 bg-negative-soft px-3 py-2 text-sm text-negative">

@@ -249,4 +249,23 @@ public class JdbcAccountStore implements AccountStore {
 				VALUES (?, ?, ?, ?, ?, ?)
 				""", e.userId(), e.company(), e.contactEmail(), e.seats(), e.monthlyAnalyses(), e.message());
 	}
+
+	@Override
+	public List<UsageEvent> usageEvents(UUID userId) {
+		return jdbc.query("""
+				SELECT period, property_ref, endpoint, account_user_id, actor_user_id, created_at FROM usage_events
+				WHERE account_user_id = ? OR actor_user_id = ? ORDER BY created_at DESC
+				""", (rs, i) -> new UsageEvent(rs.getObject("period", LocalDate.class), rs.getString("property_ref"),
+				rs.getString("endpoint"), rs.getObject("account_user_id", UUID.class), rs.getObject("actor_user_id", UUID.class),
+				instant(rs, "created_at")), userId, userId);
+	}
+
+	@Override
+	public void deleteUser(UUID userId) {
+		tx.executeWithoutResult(status -> {
+			// Enquiries keep the user as SET NULL; their contact details are personal data too.
+			jdbc.update("DELETE FROM business_enquiries WHERE user_id = ?", userId);
+			jdbc.update("DELETE FROM users WHERE id = ?", userId);
+		});
+	}
 }

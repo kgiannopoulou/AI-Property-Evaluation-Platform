@@ -151,7 +151,7 @@ export function CompareView() {
       {chosen.length < 2 ? (
         <p className="py-10 text-center text-sm text-muted">Select at least two properties above.</p>
       ) : (
-        <Card className="overflow-x-auto">
+        <Card className="relative overflow-x-auto">
           <table className="w-full min-w-[40rem] text-sm">
             <thead>
               <tr className="border-b border-line">

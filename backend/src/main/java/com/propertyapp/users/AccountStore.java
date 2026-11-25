@@ -39,6 +39,9 @@ public interface AccountStore {
 	 */
 	record Usage(boolean allowed, int counted, int used, List<UUID> eventIds) {}
 
+	/** One counted analysis, for the user's data export. */
+	record UsageEvent(LocalDate period, String propertyRef, String endpoint, UUID accountId, UUID actorId, Instant at) {}
+
 	record Enquiry(UUID userId, String company, String contactEmail, Integer seats, Integer monthlyAnalyses, String message) {}
 
 	class EmailTakenException extends RuntimeException {}
@@ -100,4 +103,14 @@ public interface AccountStore {
 	boolean recordBillingEvent(String eventId, String type);
 
 	void saveEnquiry(Enquiry enquiry);
+
+	/** Analyses the user paid for or ran, newest first. */
+	List<UsageEvent> usageEvents(UUID userId);
+
+	/**
+	 * Erasure (GDPR art. 17): deletes the user with their sessions, API keys, subscriptions, team,
+	 * consents, files records and usage, and their Business enquiries. Audit events stay without the
+	 * actor.
+	 */
+	void deleteUser(UUID userId);
 }

@@ -1,5 +1,6 @@
 package com.propertyapp.subscriptions;
 
+import com.propertyapp.audit.Audit;
 import com.propertyapp.common.Database;
 import com.propertyapp.subscriptions.Access.Caller;
 import com.propertyapp.subscriptions.Access.Entitlements;
@@ -10,6 +11,7 @@ import com.propertyapp.users.AccountService;
 import com.propertyapp.users.AccountStore;
 import com.propertyapp.users.InMemoryAccountStore;
 import com.propertyapp.users.JdbcAccountStore;
+import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.time.Clock;
 import java.util.LinkedHashMap;
@@ -112,14 +114,33 @@ class AccessConfig implements WebMvcConfigurer {
 	@RestControllerAdvice
 	static class Errors {
 
+		private final Audit audit;
+
+		Errors(Audit audit) {
+			this.audit = audit;
+		}
+
+		private void denied(HttpServletRequest request, String reason, Map<String, Object> details) {
+			Map<String, Object> d = new LinkedHashMap<>(details);
+			d.put("reason", reason);
+			if (request.getAttribute(AccessInterceptor.CALLER) instanceof Caller caller) {
+				audit.denied(caller, "access.denied", request.getRequestURI(), d);
+			} else if (request.getHeader(AccessInterceptor.API_KEY_HEADER) != null) {
+				// Unknown or revoked API keys: worth seeing when someone tries many.
+				audit.anonymous("access.denied", "denied", request.getRequestURI(), d);
+			}
+		}
+
 		@ExceptionHandler(Unauthenticated.class)
-		ResponseEntity<ProblemDetail> unauthenticated(Unauthenticated e) {
+		ResponseEntity<ProblemDetail> unauthenticated(Unauthenticated e, HttpServletRequest request) {
+			denied(request, "unauthenticated", Map.of());
 			ProblemDetail p = problem(HttpStatus.UNAUTHORIZED, "Authentication required", e.getMessage(), "unauthenticated");
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).header("WWW-Authenticate", "Bearer").body(p);
 		}
 
 		@ExceptionHandler(UpgradeRequired.class)
-		ResponseEntity<ProblemDetail> upgrade(UpgradeRequired e) {
+		ResponseEntity<ProblemDetail> upgrade(UpgradeRequired e, HttpServletRequest request) {
+			denied(request, "upgrade-required", Map.of("feature", e.feature().id()));
 			ProblemDetail p = problem(HttpStatus.FORBIDDEN, "Upgrade required", e.getMessage(), "upgrade-required");
 			p.setProperty("feature", e.feature().id());
 			p.setProperty("currentPlan", e.current().id());
@@ -128,7 +149,8 @@ class AccessConfig implements WebMvcConfigurer {
 		}
 
 		@ExceptionHandler(QuotaExceeded.class)
-		ResponseEntity<ProblemDetail> quota(QuotaExceeded e) {
+		ResponseEntity<ProblemDetail> quota(QuotaExceeded e, HttpServletRequest request) {
+			denied(request, "quota-exceeded", Map.of("limit", e.limit()));
 			ProblemDetail p = problem(HttpStatus.TOO_MANY_REQUESTS, "Monthly analyses used up", e.getMessage(), "quota-exceeded");
 			p.setProperty("plan", e.plan().id());
 			p.setProperty("limit", e.limit());

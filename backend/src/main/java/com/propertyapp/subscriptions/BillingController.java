@@ -1,5 +1,6 @@
 package com.propertyapp.subscriptions;
 
+import com.propertyapp.audit.Audit;
 import com.propertyapp.subscriptions.Access.Caller;
 import com.propertyapp.subscriptions.PlanCatalog.Feature;
 import com.propertyapp.users.AccountStore;
@@ -26,9 +27,11 @@ import org.springframework.web.bind.annotation.RestController;
 class BillingController {
 
 	private final BillingService billing;
+	private final Audit audit;
 
-	BillingController(BillingService billing) {
+	BillingController(BillingService billing, Audit audit) {
 		this.billing = billing;
+		this.audit = audit;
 	}
 
 	record PlanView(
@@ -56,24 +59,37 @@ class BillingController {
 
 	@PostMapping("/billing/checkout")
 	BillingService.Redirect checkout(Caller caller, @Valid @RequestBody CheckoutRequest request) {
-		return billing.checkout(caller, request.plan());
+		var redirect = billing.checkout(caller, request.plan());
+		audit.success(caller, "billing.checkout", request.plan(), Map.of("mode", billing.mode()));
+		return redirect;
 	}
 
 	@PostMapping("/billing/portal")
 	BillingService.Redirect portal(Caller caller) {
-		return billing.portal(caller);
+		var redirect = billing.portal(caller);
+		audit.success(caller, "billing.portal", null, Map.of());
+		return redirect;
 	}
 
 	@PostMapping("/billing/cancel")
 	BillingService.View cancel(Caller caller) {
 		billing.cancelDemo(caller);
+		audit.success(caller, "billing.cancel", null, Map.of("mode", "demo"));
 		return billing.refreshedView(caller);
 	}
 
 	/** Public: Stripe calls it; authenticity is checked with the Stripe-Signature header. */
 	@PostMapping("/billing/webhook")
 	Map<String, Object> webhook(@RequestBody String payload, @RequestHeader(value = "Stripe-Signature", required = false) String signature) {
-		return Map.of("received", true, "duplicate", !billing.handleWebhook(payload, signature));
+		boolean fresh;
+		try {
+			fresh = billing.handleWebhook(payload, signature);
+		} catch (RuntimeException e) {
+			audit.anonymous("billing.webhook", "denied", null, Map.of("reason", e.getClass().getSimpleName()));
+			throw e;
+		}
+		audit.anonymous("billing.webhook", "success", null, Map.of("duplicate", !fresh));
+		return Map.of("received", true, "duplicate", !fresh);
 	}
 
 	record EnquiryRequest(
@@ -88,6 +104,7 @@ class BillingController {
 	Map<String, String> enquiry(Caller caller, @Valid @RequestBody EnquiryRequest r) {
 		billing.enquiry(caller, new AccountStore.Enquiry(null, r.company().trim(), r.contactEmail().trim(), r.seats(),
 				r.monthlyAnalyses(), r.message()));
+		audit.success(caller, "billing.business-enquiry", null, Map.of());
 		return Map.of("status", "received", "message", "Thank you. We will contact you about a Business plan.");
 	}
 }

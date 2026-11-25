@@ -43,8 +43,22 @@ async function startSession(r: SessionResponse): Promise<Session> {
   return sessionStore.get() ?? base;
 }
 
-export async function register(name: string, email: string, password: string): Promise<Session> {
-  return startSession(await postJson<SessionResponse>("/api/v1/auth/register", { fullName: name, email, password }, "Registration"));
+export type RegistrationConsents = { marketingEmails: boolean; aiPhotoProcessing: boolean };
+
+/** The terms and privacy notice must be accepted (the form checks it); the other consents are optional. */
+export async function register(
+  name: string,
+  email: string,
+  password: string,
+  consents: RegistrationConsents = { marketingEmails: false, aiPhotoProcessing: false },
+): Promise<Session> {
+  return startSession(
+    await postJson<SessionResponse>(
+      "/api/v1/auth/register",
+      { fullName: name, email, password, acceptTerms: true, ...consents },
+      "Registration",
+    ),
+  );
 }
 
 export async function login(email: string, password: string): Promise<Session> {

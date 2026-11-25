@@ -60,6 +60,7 @@ final class PdfReportWriter {
 			}
 			doc.add(spacer());
 
+			notice(doc, f, c.valuation().notice());
 			summary(doc, f, c.valuation(), rent);
 			valuation(doc, f, c.valuation(), rent);
 			negotiation(doc, f, c.negotiation(), rent);
@@ -95,7 +96,7 @@ final class PdfReportWriter {
 		String value = v.estimate() == null ? "Not enough reliable data" : eur(v.estimate().low()) + "–" + eur(v.estimate().high()) + suffix;
 		table(doc, f, new float[] {1, 1.4f}, List.of(
 				List.of(rent ? "Asking rent" : "Asking price", eur(v.askingPrice()) + suffix),
-				List.of(rent ? "Fair market rent" : "Estimated fair market value", value),
+				List.of(rent ? "Fair market rent (automated estimate)" : "Estimated fair market value (automated estimate)", value),
 				List.of("Condition score", score(v.conditionScore())),
 				List.of("Location score", score(v.locationScore())),
 				List.of("Data quality", v.dataQuality().grade() + (v.dataQuality().sufficient() ? " (" + v.dataQuality().score() + "/100)" : ""))),
@@ -169,8 +170,24 @@ final class PdfReportWriter {
 		doc.add(new Paragraph("Shared costs: " + b.sharedCosts().assessment(), f.body()));
 	}
 
+	/** A boxed notice: what the result is and is not. */
+	private static void notice(Document doc, Fonts f, com.propertyapp.common.Notices.Notice n) throws DocumentException {
+		if (n == null) return;
+		PdfPTable box = new PdfPTable(1);
+		box.setWidthPercentage(100);
+		box.setSpacingAfter(8);
+		PdfPCell cell = new PdfPCell();
+		cell.setPadding(7);
+		cell.setBorderColor(MUTED);
+		cell.addElement(new Paragraph(n.title(), f.bold()));
+		cell.addElement(new Paragraph(n.text() + " It is not: " + String.join("; ", n.notThis()) + ".", f.small()));
+		box.addCell(cell);
+		doc.add(box);
+	}
+
 	private static void documents(Document doc, Fonts f, DocumentChecker.Result d) throws DocumentException {
 		heading(doc, f, "Documents (" + d.readiness() + ")");
+		notice(doc, f, d.notice());
 		if (d.findings().isEmpty()) doc.add(new Paragraph("No problems found in the documents provided.", f.body()));
 		else bullets(doc, f, d.findings().stream().map(x -> x.severity().toUpperCase(Locale.ROOT) + ": " + x.message() + " " + x.recommendation()).toList());
 	}

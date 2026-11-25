@@ -41,6 +41,23 @@ class FinancialCalculatorTest {
 	}
 
 	@Test
+	void mortgagePaymentMatchesTheAnnuityFormula() {
+		var r = FinancialCalculator.calculate(resale(new Mortgage(null, 0.8, 4, 25), null));
+		double i = 0.04 / 12;
+		double expected = 160_000 * i / (1 - Math.pow(1 + i, -300));
+		assertThat(r.loan().monthlyPayment()).isCloseTo(expected, offset(1.0));
+		double stress = 160_000 * (0.06 / 12) / (1 - Math.pow(1 + 0.06 / 12, -300));
+		assertThat(r.loan().stressMonthlyPayment()).isCloseTo(stress, offset(1.0));
+	}
+
+	@Test
+	void aZeroRateLoanIsRepaidInEqualInstalments() {
+		var r = FinancialCalculator.calculate(resale(new Mortgage(null, 0.8, 0, 25), null));
+		assertThat(r.loan().monthlyPayment()).isCloseTo(160_000 / 300.0, offset(1.0));
+		assertThat(Double.isFinite(r.loan().stressMonthlyPayment())).isTrue();
+	}
+
+	@Test
 	void mortgageWithStressTest() {
 		var r = FinancialCalculator.calculate(resale(new Mortgage(null, 0.8, 4, 25), null));
 		assertThat(r.loan().amount()).isEqualTo(160_000);

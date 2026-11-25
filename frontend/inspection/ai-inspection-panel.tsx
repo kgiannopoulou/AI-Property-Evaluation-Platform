@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
+import { setConsent } from "@/lib/privacy";
 import { IconSpark } from "@/components/icons";
 import { Badge, Button, Card, CardHeader } from "@/components/ui";
 import { formatDate, formatEur } from "@/lib/format";
@@ -30,17 +32,30 @@ export function AiInspectionPanel({ property }: { property: Property }) {
   const report = reports[property.id];
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsConsent, setNeedsConsent] = useState(false);
 
   async function run() {
     setRunning(true);
     setError(null);
+    setNeedsConsent(false);
     try {
       await runAiInspection(property);
     } catch (e) {
-      setError(e instanceof AiInspectionError ? e.message : "The inspection failed. Please try again.");
+      if (e instanceof AiInspectionError && e.code === "consent-required") setNeedsConsent(true);
+      else setError(e instanceof AiInspectionError ? e.message : "The inspection failed. Please try again.");
     } finally {
       setRunning(false);
     }
+  }
+
+  async function allowAndRun() {
+    try {
+      await setConsent("ai-photo-processing", true, "prompt");
+    } catch {
+      setError("Could not save your choice. Please try again.");
+      return;
+    }
+    await run();
   }
 
   const photo = (id: string) => property.photos.find((p) => p.id === id);
@@ -67,11 +82,33 @@ export function AiInspectionPanel({ property }: { property: Property }) {
         {API_URL && property.photos.length === 0 && (
           <p className="text-sm text-muted">Add photographs of each room to the property to run the AI inspection.</p>
         )}
-        {API_URL && property.photos.length > 0 && !report && !running && !error && (
+        {API_URL && property.photos.length > 0 && !report && !running && !error && !needsConsent && (
           <p className="text-sm text-muted">
             {property.photos.length} photograph{property.photos.length === 1 ? "" : "s"} ready. The analysis takes up to a
             couple of minutes.
           </p>
+        )}
+        {needsConsent && (
+          <div role="alert" className="rounded-lg border border-brand-100 bg-brand-50 p-4 text-sm">
+            <p className="font-medium">Allow AI photo processing?</p>
+            <p className="mt-1 text-muted">
+              Your photos are sent to our AI provider (Anthropic) to look for visible defects and missing items, and are
+              deleted from our storage after 180 days. No name or email is sent. You can withdraw this in Settings →
+              Privacy at any time. See the{" "}
+              <Link href="/privacy#processors" className="font-medium text-brand-700 hover:underline">
+                privacy notice
+              </Link>
+              .
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button onClick={allowAndRun} disabled={running}>
+                Allow and run the inspection
+              </Button>
+              <Button variant="ghost" onClick={() => setNeedsConsent(false)}>
+                Not now
+              </Button>
+            </div>
+          </div>
         )}
         {error && (
           <p role="alert" className="rounded-lg border border-negative/20 bg-negative-soft px-3 py-2 text-sm text-negative">

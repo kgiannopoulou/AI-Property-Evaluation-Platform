@@ -28,7 +28,11 @@ function Faq() {
   const items = [
     [
       "Is this a formal valuation?",
-      "No. Reports are independent estimates to support your decision and negotiation. Banks and courts require a certified valuer.",
+      "No. Valuations are automated estimates to support your decision and negotiation, not professional appraisals. Banks, courts and tax authorities require a certified valuer.",
+    ],
+    [
+      "Does the Document Checker confirm the title is clear?",
+      "No. It is an assistance tool that flags missing, expired or inconsistent documents from the details you enter. It is not a legal certification; a lawyer's title search and the notary's checks are still needed.",
     ],
     [
       "Can I cancel at any time?",

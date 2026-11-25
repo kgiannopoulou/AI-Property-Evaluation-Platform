@@ -1,5 +1,6 @@
 package com.propertyapp.valuation;
 
+import com.propertyapp.common.Notices;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -8,6 +9,9 @@ import java.util.List;
  * The engine's answer. When {@code status} is {@code insufficient-data} the estimate, verdict and
  * negotiation are {@code null}: the report explains what was searched and why it was not enough,
  * and never shows a figure the evidence cannot support.
+ *
+ * <p>{@code notice} marks every answer as an automated estimate, distinct from a professional
+ * appraisal by a certified valuer.
  */
 public record ValuationReport(
 		String status,
@@ -27,7 +31,8 @@ public record ValuationReport(
 		Repairs repairs,
 		Negotiation negotiation,
 		List<String> methodology,
-		String disclaimer) {
+		String disclaimer,
+		Notices.Notice notice) {
 
 	public static final String VALUED = "valued";
 	public static final String INSUFFICIENT = "insufficient-data";

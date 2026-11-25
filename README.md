@@ -3,7 +3,13 @@
 An independent second opinion on a property **before you make an offer**: valuation range, asking-price verdict,
 visible defects, ownership and renovation costs, investment returns and a negotiation range you can defend, all in one report.
 
-> **Status: Phase 9 of the roadmap (accounts, subscriptions and payments).** Freemium plans (Free, Premium €9.99,
+> **Status: Phase 10 of the roadmap (testing, security and launch).** Every pre-launch area (accounts, uploads, AI
+> accuracy and failures, valuation and financial maths, payments, reports, mobile and desktop layouts, backups and
+> recovery, permissions and privacy) is tested in CI. GDPR consent, data export, erasure, data retention, secure file
+> access and an audit log are enforced by the backend. Valuations are labelled as **automated estimates, not
+> professional appraisals**, and the Document Checker as **an assistance tool, not a legal certification** (see
+> [Privacy, security and launch](#privacy-security-and-launch)).
+> Phase 9: freemium plans (Free, Premium €9.99,
 > Professional €29.99, Business custom: pricing hypotheses to test) with real accounts, Stripe payments and usage
 > limits **enforced by the backend** on every API call (see [Accounts, plans and payments](#accounts-plans-and-payments)).
 > Phase 8: Location Intelligence, Financial Calculator, Renovation
@@ -28,7 +34,7 @@ visible defects, ownership and renovation costs, investment returns and a negoti
 | Part | Technology | Responsibility |
 | --- | --- | --- |
 | [`frontend/`](frontend) | TypeScript · React 19 · Next.js 16 · Tailwind CSS 4 | Website, dashboard, property forms, photo uploads, charts and reports |
-| [`backend/`](backend) | Java 21 · Spring Boot 4 · OpenPDF | Accounts, plans and usage limits, Stripe billing; valuation engine and the intelligence modules (location, costs, renovation, market, investment, negotiation, building, documents, floor plans, comparison, PDF reports) |
+| [`backend/`](backend) | Java 21 · Spring Boot 4 · OpenPDF | Accounts, plans and usage limits, Stripe billing; GDPR consent, export, erasure and retention, secure files, audit log; valuation engine and the intelligence modules (location, costs, renovation, market, investment, negotiation, building, documents, floor plans, comparison, PDF reports) |
 | [`ai-service/`](ai-service) | Node.js · TypeScript · Anthropic SDK | Claude vision model: photo inspection (defects, missing appliances and furniture, condition) and floor plan reading (rooms and printed measurements); structured, validated output |
 | [`database/`](database) | PostgreSQL · PostGIS | 17 core tables (users, properties, images, features, equipment, buildings, inspections, valuations, comparables, location data, expenses, renovations, investments, documents, saved properties, subscriptions, reports) and PostGIS search for nearby facilities and comparables |
 
@@ -55,16 +61,20 @@ intelligence, Stripe or a local provider for subscriptions, and Vercel plus a Ja
 │   ├── components/          app shell, UI kit, dependency-free SVG charts, icons
 │   ├── properties/          property types, form, photo upload, browser store, sample records
 │   ├── analysis/            sample analysis engine and illustrative reference data
-│   └── lib/                 formatting, session, local storage, module list
+│   ├── e2e/                 Playwright layout tests (mobile and desktop)
+│   └── lib/                 formatting, session, local storage, module list, privacy client, legal facts
 ├── backend/src/main/java/com/propertyapp/
 │   └── valuation · location · financial · renovation · market · investment · negotiation · building · documents
-│       · floorplan · comparison · reports · inspection · users · subscriptions · common  (properties: later)
+│       · floorplan · comparison · reports · inspection · users · subscriptions · privacy · audit · common
 ├── ai-service/src/
 │   └── image-analysis · defect-detection · equipment-detection · vision · report-generation · floor-plan · storage
+│       · evaluation (AI accuracy scorer; ai-service/eval/ explains the labelled set)
 ├── database/
-│   ├── migrations/          V1 initial schema · V2 evaluation tables · V3 PostGIS search · V4 submission · V5 AI inspections · V6 valuation engine · V7 modules · V8 accounts and billing
+│   ├── migrations/          V1 initial schema · V2 evaluation tables · V3 PostGIS search · V4 submission · V5 AI inspections · V6 valuation engine · V7 modules · V8 accounts and billing · V9 privacy and audit
 │   ├── tests/               schema and geo-search assertions (rolled back)
 │   └── seeds/               demo data for local development
+├── scripts/db/              backup (verified, checksummed, optionally encrypted) and restore with row-count check
+├── docs/                    testing matrix, security and privacy, backup and recovery runbook, launch checklist
 ├── compose.yaml             local PostGIS database
 └── .github/workflows/ci.yml lint, build and tests for every part + migration check
 ```
@@ -80,8 +90,9 @@ intelligence, Stripe or a local provider for subscriptions, and Vercel plus a Ja
 | Analysis results | `/properties/[id]` | Valuation range and verdict (sale price, or market rent for rentals), scores, value factors, market comparator, inspection findings (including damaged or missing appliances, heating, cooling, certificate and building works), submitted checklist and facilities, photos grouped by area, purchase and investment calculator or tenant move-in costs and rent-vs-buy, renovation scenarios, negotiation assistant, printable report. **AI Home Inspector**: runs the vision model on the photos (when the backend is connected) and lists each finding with photo thumbnails, severity, confidence, observed vs potential concern, recommendation and a cost range only where cost data exists |
 | Saved properties | `/properties` | Search, sort, delete, select up to four to compare |
 | Property comparison | `/compare` | Side-by-side table with the best value in each row highlighted |
+| Privacy notice and terms | `/privacy`, `/terms` | What is kept, why, for how long and by whom; rights; automated estimate vs professional appraisal; document checker limits. Draft pending the operator's details and a lawyer's review |
 | Pricing | `/pricing` | Free, Premium (€9.99), Professional (€29.99) and Business (custom) plans; Stripe Checkout (or demo billing) and a Business enquiry form |
-| Profile and settings | `/settings` | Profile, mortgage assumptions used by the calculator, notifications, reset demo data |
+| Profile and settings | `/settings` | Profile, mortgage assumptions used by the calculator, notifications, reset demo data; with an account: plan and usage, API keys, and **Privacy** (consents, download my data, account activity, delete account) |
 
 Data lives in `localStorage` for now. The store hooks have the same shape the API client will have, so moving to
 the backend swaps the transport without changing the pages. Records saved by earlier versions are upgraded on load
@@ -114,8 +125,8 @@ docker compose exec -T db psql -U property -d property_intelligence < database/s
 Checks:
 
 ```bash
-cd frontend && npm run lint && npm test && npm run build
-cd backend && ./mvnw test
+cd frontend && npm run lint && npm test && npm run build && npm run test:e2e   # e2e once: npx playwright install chromium
+cd backend && ./mvnw test        # + TEST_DATABASE_URL=jdbc:postgresql://... to run the privacy flow on PostgreSQL
 cd ai-service && npm run typecheck && npm test
 docker compose exec -T db psql -U property -d property_intelligence -v ON_ERROR_STOP=1 < database/tests/schema_test.sql
 ```
@@ -133,8 +144,46 @@ docker compose exec -T db psql -U property -d property_intelligence -v ON_ERROR_
 | 7 | Valuation engine: comparable records, published adjustments, weighted median price per m², fair-value range, condition and location scores, concerns, evidence-backed negotiation, data-quality gate that refuses to value on thin evidence; schema V6 | Done |
 | 8 | Intelligence modules as separate Java features: Location Intelligence (with environmental risk layers), Financial Calculator, Renovation Planner, Market Comparator, Investment Calculator, Negotiation Assistant, Building Analysis, Document Checker, Floor Plan Reader (AI), Property Comparison, PDF Reports; schema V7 | **Done** |
 | 9 | Accounts, subscriptions and payments: freemium plans, backend-enforced features and monthly analyses, Stripe Checkout, Customer Portal and webhooks, teams, API keys, bulk analysis; schema V8 | **Done** |
+| 10 | Testing, security and launch: tests for the ten pre-launch areas (incl. Playwright layouts, AI accuracy scorer, backup/restore in CI), GDPR consent, export, erasure and retention, secure file access, audit log, security headers and rate limits, estimate and legal-assistance notices; schema V9 | **Done** (external steps in the [launch checklist](docs/launch-checklist.md)) |
 | — | Website pages for document upload, floor plan upload and the backend modules; saved properties move from browser storage to Spring Boot | Next |
 | — | Deployment (Vercel + Java/Node host + managed PostgreSQL), live Stripe products | Planned |
+
+## Privacy, security and launch
+
+Details: [testing matrix](docs/testing.md) · [security and privacy](docs/security-and-privacy.md) ·
+[backup and recovery runbook](docs/operations/backup-and-recovery.md) · [launch checklist](docs/launch-checklist.md).
+
+**GDPR, enforced by the backend**
+
+| | |
+| --- | --- |
+| Consent | Terms and privacy notice at sign-up, stored with the policy version (append-only history). Photos and floor plans reach the AI provider only with `ai-photo-processing` consent: without it the upload is refused with `403 consent-required` and no analysis is counted. The website asks before the first inspection. Marketing email is opt-in |
+| Export | `GET /api/v1/privacy/export`: account, plan, API key metadata, team, usage, consents, uploaded files and activity as JSON, without secrets |
+| Erasure | `POST /api/v1/privacy/erasure` with the password deletes files, account and all linked records. Audit events stay without the actor. A paid plan must be cancelled first |
+| Retention | Nightly purge: uploads after 180 days, audit log 365 days, usage 24 months, webhook ids 90 days, enquiries 24 months, revoked keys 90 days, expired sessions. Configurable via `RETENTION_*` and shown on `/privacy` (a test keeps the two in step) |
+| Secure files | Keys scoped to the owning account, `stored_files` records, `GET /api/v1/files?key=` only for the owner or their team (others get `404`), `no-store`, every access audited |
+| Audit log | Sign-ins and failures, lockouts, consents, exports, erasures, file access, keys, teams, billing, webhooks, denied access. Emails and IP addresses are stored only as salted hashes. A database trigger makes the table append-only, and users see their own activity |
+
+Also: security headers (CSP `default-src 'none'`, `DENY` framing, `nosniff`, `no-store`, HSTS on HTTPS), per-address
+limits on sign-up and sign-in, and no stack traces in errors.
+
+**What results are, and are not.** Every valuation carries `notice.kind = "automated-estimate"`: *Automated estimate,
+not a professional appraisal*. The figure comes from software, not from a certified valuer's visit and signed report, and
+banks, courts and tax authorities do not accept it. Every Document Checker result carries `notice.kind =
+"assistance-tool"`: *Assistance tool, not a legal certification*. It does not authenticate documents, search the
+registry or certify a clear title. The website, the PDF report, the terms and sign-up all repeat this.
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET/POST /api/v1/privacy/consents` | Current consents; grant or withdraw (`terms` and `privacy-notice` cannot be withdrawn while the account exists) |
+| `GET /api/v1/privacy/export` · `GET /privacy/activity` · `POST /privacy/erasure` | Data export, own audit events, account deletion |
+| `GET /api/v1/privacy/retention` (public) | Retention periods |
+| `GET /api/v1/files` · `GET/DELETE /api/v1/files?key=` | The account's uploads; download or delete one |
+
+**Tested before launch**: all ten areas run in CI (see the [testing matrix](docs/testing.md)). The
+[launch checklist](docs/launch-checklist.md) lists what is not automated: AI accuracy on a real labelled photo set
+(`cd ai-service && npm run eval -- <dataset>`), live Stripe payments, real devices, a penetration test, the operator's
+legal details and a lawyer's review.
 
 ## Accounts, plans and payments
 
@@ -252,4 +301,5 @@ the analysis page when `NEXT_PUBLIC_API_URL` is set, with an editor for repair e
 
 ## Disclaimer
 
-Results are estimates for information only. They are not a formal valuation, survey or financial advice.
+Valuations are automated estimates for information only, not professional appraisals by a certified valuer. The
+Document Checker is an assistance tool, not a legal certification. Nothing here is a survey or financial advice.

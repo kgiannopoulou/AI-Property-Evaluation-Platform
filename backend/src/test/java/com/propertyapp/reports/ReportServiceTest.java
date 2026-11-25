@@ -57,6 +57,8 @@ class ReportServiceTest {
 				"Evidence behind the maximum offer", "Purchase and ownership costs", "Investment", "Renovation scenarios",
 				"Method and limitations", "Prepared for Maria K. by A. Agent, Demo Realty · Ref. R-12");
 		assertThat(text).doesNotContain("Not enough reliable data");
+		assertThat(text.replaceAll("\\s+", " ")).contains("Automated estimate, not a professional appraisal",
+				"Estimated fair market value (automated estimate)", "a valuation by a certified valuer");
 	}
 
 	@Test

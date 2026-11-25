@@ -1,5 +1,6 @@
 package com.propertyapp.valuation;
 
+import com.propertyapp.common.Notices;
 import com.propertyapp.valuation.MarketRecord.Kind;
 import com.propertyapp.valuation.ValuationReport.Adjustment;
 import com.propertyapp.valuation.ValuationReport.ComparableResult;
@@ -265,8 +266,9 @@ public class ValuationEngine {
 		return new ValuationReport(sufficient ? ValuationReport.VALUED : ValuationReport.INSUFFICIENT, ENGINE_ID,
 				rent ? "rent" : "sale", clock.instant(), s.askingPrice(), askingPerSqm, estimate, verdict, deltaPct,
 				conditionScore, locationScore, quality, comparables, concerns, repairs, negotiation, methodology(rent),
-				"Estimate from comparable market records, for information only. It is not a formal valuation by a "
-						+ "certified valuer, a building survey or financial advice.");
+				"Automated estimate from comparable market records, for information only. It is not a professional "
+						+ "appraisal by a certified valuer, a building survey or financial advice.",
+				Notices.AUTOMATED_ESTIMATE);
 	}
 
 	// Screening ------------------------------------------------------------------------------

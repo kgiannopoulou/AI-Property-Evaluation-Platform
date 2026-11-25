@@ -174,8 +174,12 @@ export function PropertyReport({ id }: { id: string }) {
           </Panel>
 
           <p className="mt-8 text-xs text-subtle">
-            Generated {formatDate(analysis.generatedAt)} by the {analysis.engine} engine. Estimates are illustrative and
-            are not a formal valuation, survey or financial advice.
+            Generated {formatDate(analysis.generatedAt)} by the {analysis.engine} engine. Figures are automated,
+            illustrative estimates, not a professional appraisal by a certified valuer, a survey or financial advice (
+            <a href="/terms#estimates" className="underline">
+              estimate vs appraisal
+            </a>
+            ).
           </p>
         </>
       )}
@@ -195,7 +199,10 @@ function Summary({ property, a }: { property: Property; a: AnalysisResult }) {
     <Card className="grid gap-6 p-6 lg:grid-cols-[1fr_auto]">
       <div>
         <div className="flex flex-wrap items-center gap-3">
-          <p className="text-sm font-medium text-muted">{rent ? "Estimated market rent" : "Estimated value"}</p>
+          <p className="text-sm font-medium text-muted">
+            {rent ? "Estimated market rent" : "Estimated value"}
+            <span className="text-subtle"> · automated estimate</span>
+          </p>
           <VerdictBadge verdict={a.verdict} deltaPct={a.deltaPct} />
         </div>
         <p className="tabular mt-1 text-3xl font-semibold tracking-tight">

@@ -53,7 +53,7 @@ public class ValuationController {
 				q.nextSteps(), q.metrics());
 		return new ValuationReport(r.status(), r.engine(), r.mode(), r.generatedAt(), r.askingPrice(), r.askingPerSqm(), r.estimate(),
 				r.verdict(), r.deltaPct(), r.conditionScore(), r.locationScore(), quality, List.of(), r.concerns(), r.repairs(), null,
-				r.methodology(), r.disclaimer());
+				r.methodology(), r.disclaimer(), r.notice());
 	}
 
 	public record BulkItem(@NotNull @Pattern(regexp = "[A-Za-z0-9_.:-]{1,100}") String propertyRef, @NotNull @Valid ValuationRequest request) {}

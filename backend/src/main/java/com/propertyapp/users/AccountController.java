@@ -1,5 +1,8 @@
 package com.propertyapp.users;
 
+import com.propertyapp.audit.Audit;
+import com.propertyapp.common.RateLimiter;
+import com.propertyapp.privacy.ConsentService;
 import com.propertyapp.subscriptions.Access.Caller;
 import com.propertyapp.subscriptions.Access.RequiresFeature;
 import com.propertyapp.subscriptions.PlanCatalog;
@@ -7,13 +10,16 @@ import com.propertyapp.subscriptions.PlanCatalog.Feature;
 import com.propertyapp.users.AccountStore.ApiKey;
 import com.propertyapp.users.AccountStore.Member;
 import com.propertyapp.users.AccountStore.Organisation;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -34,11 +40,20 @@ class AccountController {
 	private final AccountService accounts;
 	private final AccountStore store;
 	private final Clock clock;
+	private final ConsentService consents;
+	private final Audit audit;
+	/** Per client address, on top of the per-email lockout in AccountService. */
+	private final RateLimiter registrations;
+	private final RateLimiter logins;
 
-	AccountController(AccountService accounts, AccountStore store, Clock clock) {
+	AccountController(AccountService accounts, AccountStore store, Clock clock, ConsentService consents, Audit audit) {
 		this.accounts = accounts;
 		this.store = store;
 		this.clock = clock;
+		this.consents = consents;
+		this.audit = audit;
+		this.registrations = new RateLimiter(10, Duration.ofHours(1), clock);
+		this.logins = new RateLimiter(30, Duration.ofMinutes(10), clock);
 	}
 
 	record UserView(UUID id, String email, String fullName, String role) {
@@ -49,27 +64,56 @@ class AccountController {
 
 	record SessionView(String token, Instant expiresAt, UserView user) {}
 
-	record RegisterRequest(String email, String password, String fullName, String role) {}
+	/**
+	 * @param acceptTerms must be true: the terms (including that results are automated estimates)
+	 *     and the privacy notice of {@link ConsentService#POLICY_VERSION}
+	 * @param marketingEmails optional, false unless ticked
+	 * @param aiPhotoProcessing optional: may also be given later, before the first photo upload
+	 */
+	record RegisterRequest(String email, String password, String fullName, String role, Boolean acceptTerms,
+			Boolean marketingEmails, Boolean aiPhotoProcessing) {}
 
 	record LoginRequest(String email, String password) {}
 
 	@PostMapping("/auth/register")
 	@ResponseStatus(HttpStatus.CREATED)
-	SessionView register(@RequestBody RegisterRequest r) {
+	SessionView register(@RequestBody RegisterRequest r, HttpServletRequest http) {
+		if (!registrations.tryAcquire(http.getRemoteAddr())) {
+			audit.anonymous("auth.register", "denied", null, Map.of("reason", "rate-limit"));
+			throw new AccountService.AccountException(429, "Too many sign-ups from this network. Try again later.");
+		}
+		if (!Boolean.TRUE.equals(r.acceptTerms())) {
+			throw new AccountService.AccountException(400, "Accept the terms and privacy notice to create an account.");
+		}
 		var s = accounts.register(r.email(), r.password(), r.fullName(), r.role());
+		consents.atRegistration(s.user().id(), Boolean.TRUE.equals(r.marketingEmails()), Boolean.TRUE.equals(r.aiPhotoProcessing()));
+		audit.user(s.user().id(), "auth.register", "success", null, Map.of("policyVersion", ConsentService.POLICY_VERSION));
 		return new SessionView(s.token(), s.expiresAt(), UserView.of(s.user()));
 	}
 
 	@PostMapping("/auth/login")
-	SessionView login(@RequestBody LoginRequest r) {
-		var s = accounts.login(r.email(), r.password());
-		return new SessionView(s.token(), s.expiresAt(), UserView.of(s.user()));
+	SessionView login(@RequestBody LoginRequest r, HttpServletRequest http) {
+		String target = Audit.hashed("email", r.email());
+		if (!logins.tryAcquire(http.getRemoteAddr())) {
+			audit.anonymous("auth.login", "denied", target, Map.of("reason", "rate-limit"));
+			throw new AccountService.AccountException(429, "Too many sign-in attempts from this network. Try again in a few minutes.");
+		}
+		try {
+			var s = accounts.login(r.email(), r.password());
+			audit.user(s.user().id(), "auth.login", "success", null, Map.of());
+			return new SessionView(s.token(), s.expiresAt(), UserView.of(s.user()));
+		} catch (AccountService.AccountException e) {
+			audit.anonymous("auth.login", e.status() == 429 ? "denied" : "failure", target,
+					Map.of("reason", e.status() == 429 ? "lockout" : "bad-credentials"));
+			throw e;
+		}
 	}
 
 	@PostMapping("/auth/logout")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	void logout(Caller caller, @RequestHeader("Authorization") String authorization) {
 		accounts.logout(authorization.substring("Bearer ".length()).trim());
+		audit.success(caller, "auth.logout", null, Map.of());
 	}
 
 	record Me(UserView user, String plan, boolean teamMember) {}
@@ -91,6 +135,7 @@ class AccountController {
 	NewKeyView createKey(Caller caller, @Valid @RequestBody NewKeyRequest r) {
 		if (caller.viaApiKey()) throw new AccountService.AccountException(403, "Create API keys while logged in, not with another key.");
 		var k = accounts.createApiKey(caller.user().id(), r.name());
+		audit.success(caller, "apikey.create", k.key().prefix(), Map.of());
 		return new NewKeyView(k.key(), k.secret(), "Copy the key now: it is shown only once. Send it in the X-API-Key header.");
 	}
 
@@ -105,6 +150,7 @@ class AccountController {
 	@RequiresFeature(Feature.API_ACCESS)
 	void revoke(Caller caller, @PathVariable UUID id) {
 		if (!store.revokeApiKey(caller.user().id(), id, clock.instant())) throw new AccountService.AccountException(404, "No such active key.");
+		audit.success(caller, "apikey.revoke", id.toString(), Map.of());
 	}
 
 	// Teams (Business) ---------------------------------------------------------------------------
@@ -127,7 +173,9 @@ class AccountController {
 	@RequiresFeature(Feature.TEAMS)
 	TeamView createTeam(Caller caller, @Valid @RequestBody CreateTeamRequest r) {
 		try {
-			return view(store.createOrganisation(caller.user().id(), r.name().trim()), caller);
+			var team = store.createOrganisation(caller.user().id(), r.name().trim());
+			audit.success(caller, "team.create", team.id().toString(), Map.of());
+			return view(team, caller);
 		} catch (AccountStore.AlreadyInTeamException e) {
 			throw new AccountService.AccountException(409, "You already own or belong to a team.");
 		}
@@ -146,6 +194,7 @@ class AccountController {
 				.orElseThrow(() -> new AccountService.AccountException(404, "No account with that email. Ask them to register first."));
 		try {
 			store.addMember(o.id(), user.id(), r.role() == null ? "member" : r.role());
+			audit.success(caller, "team.member-add", user.id().toString(), Map.of("role", r.role() == null ? "member" : r.role()));
 		} catch (AccountStore.AlreadyInTeamException e) {
 			throw new AccountService.AccountException(409, "That person is already in a team.");
 		}
@@ -157,6 +206,7 @@ class AccountController {
 	TeamView removeMember(Caller caller, @PathVariable UUID userId) {
 		Organisation o = ownedTeam(caller);
 		if (!store.removeMember(o.id(), userId)) throw new AccountService.AccountException(404, "Not a member of your team.");
+		audit.success(caller, "team.member-remove", userId.toString(), Map.of());
 		return view(o, caller);
 	}
 

@@ -1,5 +1,7 @@
 package com.propertyapp.floorplan;
 
+import com.propertyapp.privacy.ConsentService;
+import com.propertyapp.subscriptions.Access.Caller;
 import com.propertyapp.subscriptions.Access.Metered;
 import com.propertyapp.subscriptions.Access.RequiresFeature;
 import com.propertyapp.subscriptions.PlanCatalog.Feature;
@@ -44,20 +46,25 @@ class FloorPlanController {
 	private final PhotoStorage storage;
 	private final FloorPlanReader reader;
 
-	FloorPlanController(PhotoStorage storage, FloorPlanReader reader) {
+	private final ConsentService consents;
+
+	FloorPlanController(PhotoStorage storage, FloorPlanReader reader, ConsentService consents) {
 		this.storage = storage;
 		this.reader = reader;
+		this.consents = consents;
 	}
 
 	@RequiresFeature(Feature.FLOOR_PLANS)
 	@Metered
 	@PostMapping(value = "/api/v1/floor-plans", consumes = "multipart/form-data")
 	FloorPlanReader.Result read(
+			Caller caller,
 			@RequestParam String propertyId,
 			@RequestParam("plan") MultipartFile plan,
 			@RequestParam(required = false) Double sizeSqm,
 			@RequestParam(required = false) Integer bedrooms,
 			@RequestParam(required = false) Integer bathrooms) throws IOException {
+		consents.require(caller.user().id(), ConsentService.Purpose.AI_PHOTO_PROCESSING);
 		if (!ID.matcher(propertyId).matches()) throw badRequest("propertyId is invalid");
 		if (plan.isEmpty() || plan.getSize() > MAX_BYTES) throw badRequest("The plan must be an image of 5 MB or less");
 		if (sizeSqm != null && (sizeSqm < 15 || sizeSqm > 2000)) throw badRequest("sizeSqm must be between 15 and 2000");
@@ -65,7 +72,7 @@ class FloorPlanController {
 		if (bathrooms != null && (bathrooms < 0 || bathrooms > 10)) throw badRequest("bathrooms must be between 0 and 10");
 		byte[] data = plan.getBytes();
 		String ext = PhotoStorage.sniffExtension(data).orElseThrow(() -> badRequest("Only JPEG, PNG or WebP images are accepted"));
-		String key = storage.save(propertyId, data, ext);
+		String key = storage.save(caller, propertyId, data, ext, "floor-plan");
 		FloorPlanReader.Reading reading = reader.read(propertyId, key);
 		return FloorPlanReader.check(reading, new FloorPlanReader.Declared(sizeSqm, bedrooms, bathrooms));
 	}

@@ -478,6 +478,46 @@ BEGIN
     VALUES ('00000000-0000-0000-0000-000000000001', 'test', 'pe_live_abc', repeat('b', 64));
 END $$;
 
+-- V9: consent, uploaded files, audit log, retention -------------------------------------
+DO $$
+DECLARE u uuid := '00000000-0000-0000-0000-000000000001'; r record; n bigint;
+BEGIN
+    INSERT INTO consent_records (user_id, purpose, granted, policy_version, source, recorded_at)
+    VALUES (u, 'marketing-email', true, '2026-11-25', 'registration', now() - interval '1 day'),
+           (u, 'marketing-email', false, '2026-11-25', 'settings', now());
+    ASSERT (SELECT granted FROM current_consents WHERE user_id = u AND purpose = 'marketing-email') = false,
+        'current_consents shows the latest decision';
+    PERFORM pg_temp.expect_error($q$UPDATE consent_records SET granted = true$q$, 'P0001');
+    PERFORM pg_temp.expect_error($q$INSERT INTO consent_records (user_id, purpose, granted, policy_version, source)
+        VALUES ('00000000-0000-0000-0000-000000000001', 'profiling', true, 'v', 'settings')$q$, '23514');
+
+    INSERT INTO stored_files (storage_key, owner_user_id, uploaded_by, property_ref, kind, content_type, size_bytes, delete_after)
+    VALUES ('accounts/' || u || '/properties/p1/a.jpg', u, u, 'p1', 'inspection-photo', 'image/jpeg', 1024, now() + interval '180 days');
+    PERFORM pg_temp.expect_error($q$INSERT INTO stored_files (storage_key, owner_user_id, property_ref, kind, content_type, size_bytes, delete_after)
+        VALUES ('x.exe', '00000000-0000-0000-0000-000000000001', 'p1', 'inspection-photo', 'application/x-msdownload', 1, now() + interval '1 day')$q$, '23514');
+
+    INSERT INTO audit_events (actor_user_id, actor_kind, action, outcome) VALUES (u, 'user', 'auth.login', 'success');
+    INSERT INTO audit_events (actor_kind, action, outcome, occurred_at) VALUES ('system', 'retention.purge', 'success', now() - interval '400 days');
+    PERFORM pg_temp.expect_error($q$INSERT INTO audit_events (actor_kind, action, outcome) VALUES ('user', 'Login!', 'success')$q$, '23514');
+    -- Append-only: no edits, no deletes outside the retention purge.
+    PERFORM pg_temp.expect_error($q$UPDATE audit_events SET outcome = 'failure'$q$, 'P0001');
+    PERFORM pg_temp.expect_error($q$DELETE FROM audit_events$q$, 'P0001');
+
+    -- Retention: old audit events, expired sessions and old usage go; recent data stays.
+    INSERT INTO user_sessions (token_hash, user_id, created_at, expires_at)
+    VALUES (repeat('e', 64), u, now() - interval '40 days', now() - interval '10 days');
+    FOR r IN SELECT * FROM purge_expired_data(now()) LOOP
+        IF r.category = 'audit-events' THEN ASSERT r.deleted = 1, format('one old audit event purged, got %s', r.deleted); END IF;
+        IF r.category = 'expired-sessions' THEN ASSERT r.deleted >= 1, 'expired session purged'; END IF;
+    END LOOP;
+    ASSERT NOT EXISTS (SELECT 1 FROM audit_events WHERE action = 'retention.purge' AND occurred_at < now() - interval '365 days'),
+        'audit events older than the retention period are gone';
+    ASSERT EXISTS (SELECT 1 FROM audit_events WHERE actor_user_id = u AND action = 'auth.login'), 'recent audit events stay';
+    ASSERT NOT EXISTS (SELECT 1 FROM user_sessions WHERE token_hash = repeat('e', 64)), 'expired session gone';
+    ASSERT EXISTS (SELECT 1 FROM user_sessions WHERE token_hash = repeat('a', 64)), 'live session kept';
+    PERFORM pg_temp.expect_error($q$DELETE FROM audit_events$q$, 'P0001');  -- the purge switch does not leak
+END $$;
+
 DO $$
 BEGIN
     -- updated_at trigger overrides whatever the client sends.
@@ -494,6 +534,10 @@ BEGIN
     ASSERT NOT EXISTS (SELECT 1 FROM usage_events WHERE account_user_id = '00000000-0000-0000-0000-000000000001'), 'usage cascaded';
     ASSERT NOT EXISTS (SELECT 1 FROM user_sessions WHERE user_id = '00000000-0000-0000-0000-000000000001'), 'sessions cascaded';
     ASSERT NOT EXISTS (SELECT 1 FROM api_keys WHERE owner_user_id = '00000000-0000-0000-0000-000000000001'), 'API keys cascaded';
+    ASSERT NOT EXISTS (SELECT 1 FROM consent_records WHERE user_id = '00000000-0000-0000-0000-000000000001'), 'consents cascaded';
+    ASSERT NOT EXISTS (SELECT 1 FROM stored_files WHERE owner_user_id = '00000000-0000-0000-0000-000000000001'), 'file records cascaded';
+    ASSERT EXISTS (SELECT 1 FROM audit_events WHERE action = 'auth.login' AND actor_user_id IS NULL),
+        'audit events outlive the account, without the actor';
     ASSERT EXISTS (SELECT 1 FROM buildings WHERE id = '00000000-0000-0000-0000-0000000000b1'), 'shared building is kept';
     ASSERT EXISTS (SELECT 1 FROM comparables WHERE id = '00000000-0000-0000-0000-0000000000c1'), 'market records are kept';
 END $$;

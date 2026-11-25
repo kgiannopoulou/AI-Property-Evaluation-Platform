@@ -16,6 +16,11 @@ spring:
 
 server:
   port: ${PORT:8080}
+  # Behind a TLS-terminating proxy set FORWARD_HEADERS=framework, so HTTPS (HSTS) and the client address are known.
+  forward-headers-strategy: ${FORWARD_HEADERS:none}
+  error:
+    include-stacktrace: never
+    include-message: never
 
 management:
   endpoints:
@@ -39,6 +44,18 @@ app:
       webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
       price-premium: ${STRIPE_PRICE_PREMIUM:}
       price-professional: ${STRIPE_PRICE_PROFESSIONAL:}
+  audit:
+    # Salt for the client-address hashes in the audit log. Set a long random value in production.
+    ip-salt: ${AUDIT_IP_SALT:}
+  retention:
+    # How long data is kept (GDPR storage limitation); the purge runs daily at 03:30 UTC.
+    cron: ${RETENTION_CRON:0 30 3 * * *}
+    uploaded-file-days: ${RETENTION_UPLOADED_FILE_DAYS:180}
+    audit-days: ${RETENTION_AUDIT_DAYS:365}
+    usage-months: ${RETENTION_USAGE_MONTHS:24}
+    billing-event-days: ${RETENTION_BILLING_EVENT_DAYS:90}
+    enquiry-months: ${RETENTION_ENQUIRY_MONTHS:24}
+    revoked-key-days: ${RETENTION_REVOKED_KEY_DAYS:90}
   inspection:
     ai-service-url: ${AI_SERVICE_URL:http://localhost:8090}
     ai-service-token: ${AI_SERVICE_TOKEN:}

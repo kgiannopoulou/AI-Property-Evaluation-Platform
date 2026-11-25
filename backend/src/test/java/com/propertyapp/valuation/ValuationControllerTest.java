@@ -44,7 +44,11 @@ class ValuationControllerTest {
 				.andExpect(jsonPath("$.estimate").doesNotExist())
 				.andExpect(jsonPath("$.negotiation").doesNotExist())
 				.andExpect(jsonPath("$.dataQuality.metrics.marketDataConnected").value(false))
-				.andExpect(jsonPath("$.conditionScore.score").isNumber());
+				.andExpect(jsonPath("$.conditionScore.score").isNumber())
+				// Always labelled as an automated estimate, distinct from a professional appraisal.
+				.andExpect(jsonPath("$.notice.kind").value("automated-estimate"))
+				.andExpect(jsonPath("$.notice.title").value("Automated estimate, not a professional appraisal"))
+				.andExpect(jsonPath("$.disclaimer").value(org.hamcrest.Matchers.containsString("not a professional appraisal")));
 	}
 
 	@Test

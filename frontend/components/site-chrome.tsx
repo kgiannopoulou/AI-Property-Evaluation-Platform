@@ -36,7 +36,7 @@ export function SiteHeader() {
 export function SiteFooter() {
   return (
     <footer className="border-t border-line bg-surface">
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 sm:grid-cols-2 md:grid-cols-[1.4fr_1fr_1fr_1fr_1.3fr]">
         <div>
           <Logo />
           <p className="mt-3 max-w-xs text-sm text-muted">
@@ -59,11 +59,18 @@ export function SiteFooter() {
             ["Dashboard", "/dashboard"],
           ]}
         />
+        <FooterColumn
+          title="Legal"
+          links={[
+            ["Privacy notice", "/privacy"],
+            ["Terms of use", "/terms"],
+          ]}
+        />
         <div>
           <h3 className="text-sm font-semibold">Disclaimer</h3>
           <p className="mt-3 text-xs leading-relaxed text-muted">
-            Results are estimates for information only and are not a formal valuation, survey or financial advice. This
-            prototype uses illustrative sample data.
+            Valuations are automated estimates, not professional appraisals. The document checker is an assistance tool,
+            not a legal certification. Nothing here is a survey or financial advice.
           </p>
         </div>
       </div>

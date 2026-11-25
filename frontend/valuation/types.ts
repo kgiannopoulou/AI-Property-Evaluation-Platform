@@ -104,4 +104,6 @@ export type ValuationReport = {
   negotiation: { openingOffer: number; targetPrice: number; maxOffer: number; strategy: string; evidence: string[] } | null;
   methodology: string[];
   disclaimer: string;
+  /** Always "automated-estimate": distinct from a professional appraisal by a certified valuer. */
+  notice?: { kind: string; title: string; text: string; notThis: string[] };
 };

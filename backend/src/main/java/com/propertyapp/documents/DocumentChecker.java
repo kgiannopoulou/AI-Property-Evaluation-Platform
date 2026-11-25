@@ -1,5 +1,6 @@
 package com.propertyapp.documents;
 
+import com.propertyapp.common.Notices;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -87,7 +88,9 @@ public final class DocumentChecker {
 	public record ChecklistItem(String type, String label, String status, String why) {}
 
 	/** @param readiness ready, issues or blocked */
-	public record Result(String readiness, List<ChecklistItem> checklist, List<Finding> findings, List<String> notes) {}
+	/** {@code notice}: an assistance tool, not a legal certification; returned with every result. */
+	public record Result(String readiness, List<ChecklistItem> checklist, List<Finding> findings, List<String> notes,
+			Notices.Notice notice) {}
 
 	private static final Map<String, Integer> RANK = Map.of("blocker", 0, "high", 1, "medium", 2, "info", 3);
 
@@ -148,7 +151,7 @@ public final class DocumentChecker {
 		List<String> notes = List.of(
 				"Checks use the fields provided for each document; they do not verify that a document is genuine.",
 				"Validity periods are those commonly applied by notaries (e.g. engineer's certificate two months, energy certificate ten years); confirm with your notary.");
-		return new Result(readiness, List.copyOf(checklist), List.copyOf(findings), notes);
+		return new Result(readiness, List.copyOf(checklist), List.copyOf(findings), notes, Notices.DOCUMENT_ASSISTANCE);
 	}
 
 	private static void consistency(Request r, List<Finding> findings) {

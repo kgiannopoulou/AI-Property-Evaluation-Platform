@@ -102,7 +102,7 @@ class InspectionControllerTest {
 		assertThat(request.propertyId()).isEqualTo("p1");
 		assertThat(request.photos()).extracting(AiInspectionClient.PhotoRef::photoId).containsExactly("k1", "b1");
 		assertThat(request.photos()).extracting(AiInspectionClient.PhotoRef::area).containsExactly("kitchen", "bathroom");
-		assertThat(request.photos().get(0).storageKey()).matches("properties/p1/[0-9a-f-]{36}\\.jpg");
+		assertThat(request.photos().get(0).storageKey()).matches("accounts/[0-9a-f-]{36}/properties/p1/[0-9a-f-]{36}\\.jpg");
 		assertThat(request.photos().get(1).storageKey()).endsWith(".png");
 		assertThat(request.context())
 				.containsEntry("listingType", "rent")

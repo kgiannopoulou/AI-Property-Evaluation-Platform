@@ -1,5 +1,6 @@
 package com.propertyapp.inspection;
 
+import com.propertyapp.privacy.ConsentService;
 import com.propertyapp.subscriptions.Access.Caller;
 import com.propertyapp.subscriptions.Access.Metered;
 import com.propertyapp.subscriptions.Access.RequiresFeature;
@@ -53,10 +54,12 @@ public class InspectionController {
 
 	private final PhotoStorage storage;
 	private final AiInspectionClient ai;
+	private final ConsentService consents;
 
-	public InspectionController(PhotoStorage storage, AiInspectionClient ai) {
+	public InspectionController(PhotoStorage storage, AiInspectionClient ai, ConsentService consents) {
 		this.storage = storage;
 		this.ai = ai;
+		this.consents = consents;
 	}
 
 	@RequiresFeature(Feature.BASIC_INSPECTION)
@@ -70,6 +73,8 @@ public class InspectionController {
 			@RequestParam List<String> areas,
 			@RequestParam MultiValueMap<String, String> params) throws IOException {
 
+		// Photos go to a third-party AI provider: only with the user's consent (GDPR art. 6(1)(a)).
+		consents.require(caller.user().id(), ConsentService.Purpose.AI_PHOTO_PROCESSING);
 		if (!ID.matcher(propertyId).matches()) throw badRequest("propertyId is invalid");
 		if (photos.isEmpty() || photos.size() > MAX_PHOTOS) throw badRequest("Send between 1 and " + MAX_PHOTOS + " photos");
 		int planMax = caller.plan().maxInspectionPhotos();
@@ -105,7 +110,7 @@ public class InspectionController {
 
 		List<AiInspectionClient.PhotoRef> refs = new ArrayList<>();
 		for (int i = 0; i < photos.size(); i++) {
-			String key = storage.save(propertyId, contents.get(i), extensions.get(i));
+			String key = storage.save(caller, propertyId, contents.get(i), extensions.get(i), "inspection-photo");
 			refs.add(new AiInspectionClient.PhotoRef(photoIds.get(i), key, areas.get(i)));
 		}
 

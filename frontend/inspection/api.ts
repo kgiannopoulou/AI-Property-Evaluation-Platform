@@ -59,7 +59,14 @@ export function useAiInspections(): Record<string, AiInspectionReport> {
   return useLocalStore(aiInspectionsStore, EMPTY);
 }
 
-export class AiInspectionError extends Error {}
+export class AiInspectionError extends Error {
+  /** "consent-required" when the user has not allowed AI photo processing yet. */
+  readonly code?: string;
+  constructor(message: string, code?: string) {
+    super(message);
+    this.code = code;
+  }
+}
 
 /** Photo ids must be letters, digits, "-" or "_" for the API; older ids are mapped. */
 function apiPhotoId(id: string, index: number): string {
@@ -99,7 +106,10 @@ export async function runAiInspection(property: Property): Promise<AiInspectionR
   } catch {
     throw new AiInspectionError("Could not reach the backend. Is it running?");
   }
-  if (!res.ok) throw new AiInspectionError((await toApiError(res, "The inspection")).message);
+  if (!res.ok) {
+    const e = await toApiError(res, "The inspection");
+    throw new AiInspectionError(e.message, e.code);
+  }
   const report = (await res.json()) as AiInspectionReport;
   // Map photo references back to the ids used in this browser.
   const mapped: AiInspectionReport = {

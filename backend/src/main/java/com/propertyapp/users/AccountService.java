@@ -102,6 +102,11 @@ public class AccountService {
 		return newSession(user.get());
 	}
 
+	/** Re-confirms the password before a sensitive action (account deletion). */
+	public boolean passwordMatches(User user, String password) {
+		return password != null && encoder.matches(password, user.passwordHash());
+	}
+
 	public void logout(String token) {
 		if (token != null) store.deleteSession(sha256(token));
 	}

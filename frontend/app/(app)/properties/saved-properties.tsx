@@ -108,7 +108,7 @@ export function SavedProperties() {
           {rows.length === 0 ? (
             <p className="py-10 text-center text-sm text-muted">No properties match “{query}”.</p>
           ) : (
-            <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {rows.map((p) => {
                 const a = analyses[p.id];
                 const isSelected = selected.includes(p.id);

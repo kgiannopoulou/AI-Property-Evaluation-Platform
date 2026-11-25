@@ -19,6 +19,7 @@ import {
 import { logout } from "@/lib/account";
 import { API_URL } from "@/lib/api";
 import { PlanUsageCard } from "./plan-usage";
+import { PrivacyCard } from "./privacy-card";
 import { resetDemoData } from "@/properties/store";
 
 const ROLES: [Session["role"], string][] = [
@@ -53,6 +54,7 @@ export function SettingsView() {
           </Card>
         )}
         {session?.token && API_URL && <PlanUsageCard justUpgraded={justUpgraded} />}
+        {session?.token && API_URL && <PrivacyCard />}
         <AssumptionsCard prefs={prefs} />
         <NotificationsCard prefs={prefs} />
         <DataCard signedIn={!!session} />
@@ -259,7 +261,10 @@ function DataCard({ signedIn }: { signedIn: boolean }) {
   const [confirm, setConfirm] = useState(false);
   return (
     <Card>
-      <CardHeader title="Data" description="Everything in this preview is stored in your browser only" />
+      <CardHeader
+        title="Data in this browser"
+        description="Saved properties, preferences and AI reports are kept in this browser (localStorage); reset clears them"
+      />
       <div className="flex flex-wrap items-center gap-3 p-5">
         {confirm ? (
           <>
